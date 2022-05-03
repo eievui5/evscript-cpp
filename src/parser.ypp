@@ -1,0 +1,195 @@
+%skeleton "lalr1.cc"
+%require "3.8.1"
+%header
+
+%code requires {
+	#include <string>
+	#include "types.hpp"
+	struct driver;
+}
+
+%code {
+	#include "driver.hpp"
+	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.value = r; drv.current_script.statements.push_back(res);
+	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.operand = r; drv.current_script.statements.push_back(res);
+}
+
+%define api.token.raw
+%define api.token.constructor
+%define api.value.type variant
+
+%define parse.assert
+%define parse.trace
+%define parse.error detailed
+%define parse.lac full
+
+%param { driver& drv }
+%locations
+
+%define api.token.prefix {TOK_}
+%token
+	ASSIGN "=" PLUS "+=" MINUS "-=" STAR "*=" SLASH "/="
+	AND "&&" OR "||" EQU "==" NOT "!="
+	LPAREN "(" RPAREN ")" LBRACE "{" RBRACE "}"
+	COLON ":" ELLIPSES "..." SEMICOLON ";" COMMA ","
+;
+%token
+	ENV "env" ASM "asm"
+	DEF "def" MAC "mac" USE "use"
+	TERM "terminator" SECT "section" POOL "pool"
+	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big"
+;
+%token <std::string> IDENTIFIER "identifier"
+%token <int> NUMBER "number"
+%token <int> ARGID "$n"
+%token <std::string> STRING "string"
+
+%type <param> parameter
+%type <std::vector<param>> parameters
+%type <arg> argument
+%type <std::vector<arg>> arguments
+%type <statement> statement
+%type <std::vector<statement>> statements
+
+%%
+
+file: blocks block {};
+blocks: %empty {} | blocks block {};
+block:
+  typedef {}
+| environment {}
+| assembly {}
+| script {};
+
+typedef:
+  "typedef" "identifier" "=" "number" ";" { drv.typedefs[$2].size = $4; }
+| "typedef" "identifier" "=" "identifier" ";" {
+  	drv.typedefs[$2].size = drv.get_type($4);
+  }
+| "typedef_big" "identifier" "=" "number" ";" {
+	drv.typedefs[$2].size = $4;
+	drv.typedefs[$2].big_endian = true;
+}
+| "typedef_big" "identifier" "=" "identifier" ";" {
+	drv.typedefs[$2].size = drv.get_type($4);
+	drv.typedefs[$2].big_endian = true;
+};
+
+environment:
+  "env" "identifier" "{" declarations "}" {
+  	drv.environments[$2] = drv.current_environment;
+  	drv.current_environment.initialize();
+}
+| "env" "identifier" "identifier" "{" declarations "}" {
+	drv.environments[$2] = drv.current_environment;
+	drv.environments[$2].bytecode_size = drv.get_type($3);
+	drv.current_environment.initialize();
+};
+declarations: %empty {} | declarations declaration {};
+declaration:
+  "use" "identifier" ";" { /* TODO imports */ }
+| "def" "identifier" "(" parameters ")" ";" {
+	auto& this_def = drv.current_environment.defines[$2];
+	this_def.type = deftype::DEF;
+	this_def.bytecode = drv.current_environment.bytecode_count++;
+	this_def.parameters = $4;
+}
+| "mac" "identifier" "(" parameters ")" "=" "identifier" ";" {
+	auto& this_def = drv.current_environment.defines[$2];
+	this_def.type = deftype::ALIAS;
+	this_def.alias = $7;
+	this_def.parameters = $4;
+}
+| "mac" "identifier" "(" parameters ")" "=" "identifier" "(" arguments ")" ";" {
+	auto& this_def = drv.current_environment.defines[$2];
+	this_def.type = deftype::MAC;
+	this_def.parameters = $4;
+	this_def.alias = $7;
+	this_def.arguments = $9;
+}
+| "terminator" "=" "number" ";" { drv.current_environment.terminator = $3; }
+| "section" "=" "string" ";" { drv.current_environment.section = $3; }
+| "pool" "=" "number" ";" { drv.current_environment.pool = $3; };
+
+script:
+  "identifier" "identifier" "{" statements "}" {
+  	drv.scripts[$2] = drv.current_script;
+  	drv.scripts[$2].env = $1;
+};
+
+statements: %empty {} | statements statement {};
+statement:
+  "identifier" "(" arguments ")" ";" {
+	$$.type = statement_type::CALL;
+	$$.identifier = $1;
+	$$.args = $3;
+	drv.current_script.statements.push_back($$);
+}
+// constant operations
+| "identifier" "=" "number" ";" {  CONSTOP($$, $1, $3, ASSIGN); }
+| "identifier" "+=" "number" ";" { CONSTOP($$, $1, $3, CONST_ADD); }
+| "identifier" "-=" "number" ";" { CONSTOP($$, $1, $3, CONST_SUB); }
+| "identifier" "*=" "number" ";" { CONSTOP($$, $1, $3, CONST_MULT); }
+| "identifier" "/=" "number" ";" { CONSTOP($$, $1, $3, CONST_DIV); }
+// variable operations
+| "identifier" "=" "identifier" ";" {  VAROP($$, $1, $3, COPY); } // may load a global
+| "identifier" "+=" "identifier" ";" { VAROP($$, $1, $3, ADD); }
+| "identifier" "-=" "identifier" ";" { VAROP($$, $1, $3, SUB); }
+| "identifier" "*=" "identifier" ";" { VAROP($$, $1, $3, MULT); }
+| "identifier" "/=" "identifier" ";" { VAROP($$, $1, $3, DIV); }
+| "identifier" "identifier" ";" {
+	$$.type = statement_type::DECLARE;
+	$$.size = drv.get_type($1);
+	$$.identifier = $2;
+	drv.current_script.statements.push_back($$);
+}
+// declare with constant value
+| "identifier" "identifier" "=" "number" ";" {
+	$$.type = statement_type::DECLARE_ASSIGN;
+	$$.size = drv.get_type($1);
+	$$.identifier = $2;
+	$$.value = $4;
+	drv.current_script.statements.push_back($$);
+}
+// declare with copy or global load
+| "identifier" "identifier" "=" "identifier" ";" {
+	$$.type = statement_type::DECLARE_COPY;
+	$$.size = drv.get_type($1);
+	$$.identifier = $2;
+	$$.operand = $4;
+	drv.current_script.statements.push_back($$);
+}
+// label
+| "identifier" ":" {
+	$$.type = statement_type::LABEL;
+	$$.identifier = $1;
+	drv.current_script.statements.push_back($$);
+};
+
+parameters:
+  %empty {}
+| parameter { $$.push_back($1); }
+| parameters "," parameter { $1.push_back($3); $$ = $1; };
+
+parameter:
+  "identifier" { $$.type = partype::ARG; $$.size = drv.get_type($1); }
+| "const" "identifier" { $$.type = partype::CON; $$.size = drv.get_type($2); }
+| "..." { $$.type = partype::VARARGS; };
+
+arguments:
+  %empty {}
+| argument { $$.push_back($1); }
+| arguments "," argument { $1.push_back($3); $$ = $1; };
+argument:
+  "identifier" { $$.str = $1; $$.type = argtype::VAR; }
+| "number" { $$.value = $1; $$.type = argtype::NUM; }
+| "string" { $$.str = $1; $$.type = argtype::STR; }
+| "$n" { $$.value = $1; $$.type = argtype::ARG; };
+
+assembly: "asm" "{" "}" {};
+
+%%
+
+void yy::parser::error(const location_type& l, const std::string& m) {
+	std::cerr << l << ": " << m << '\n';
+}

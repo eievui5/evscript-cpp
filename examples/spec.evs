@@ -1,0 +1,120 @@
+// The following types are provided by evscript:
+// byte: 1 byte
+// word: 2 bytes
+// ptr: 2 bytes
+// farptr: 3 bytes
+// long: 4 bytes
+
+// Additional types may be defined using the `typedef` keyword, if another size
+// or alias is required.
+// `typedef_big` can be used to specify that the value should be stored as
+// big-endian
+typedef_big position = short;
+// Typedefs could be moved into environments?
+
+// An environment is used to define a set of commands.
+// The "std" or standard environment is automatically provided, and contains all
+// commands needed by the evscript language. Without it, many features will be
+// missing.
+
+// The following is an example of the standard environment:
+env std {
+	// Commands are defined using the `def` keyword followed by an identifier
+	// and a set of parenthesis.
+	// The parenthesis describe the size of the arguments in bytes.
+	def return();
+	// If the argument is a constant value, the `const` keyword should be used.
+	def goto(const word);
+	def compare(byte, byte);
+	def const_compare(byte, const byte);
+	// ...
+	// A terminator byte may be provided by the environment.
+	// Most users will not need this unless they are not using the standard
+	// environment.
+	terminator = 0;
+	// An environment may specify a default section type to be placed in.
+	// Only ROM0 and ROMX will properly assemble, but an address or bank may be
+	// provided, such as "ROMX, BANK[2]".
+	section = "ROMX";
+}
+
+// An environment can specify a size in bytes for its command prefix. This must
+// be large enough to contain all commands.
+// The default size is a byte.
+env script word {
+	// An environment can include other environments with the `use` keyword. Most
+	// users will want to begin by importing the standard commands using `use std`.
+	// If this is not included, control structures such as `if` and `while`, and
+	// operators such as `=` and `+` will not be available.
+	use std;
+	def move_actor(word, const byte, const byte);
+	// The `mac` keyword can be used to define an alias for another command,
+	// optionally defining default arguments. `\n` stands for the nth argument,
+	// which should be passed into the target command.
+	mac move_player(const byte, const byte) = move_actor(wPlayer, $1, $2);
+	// Additionally, `mac` can be used to alias an RGBASM macro, if the value on
+	// the right is not a command. This allows you to use varargs. 
+	mac print(const word, ...) = print;
+
+	// If a string is passed to a `const` argument, evscript will define the
+	// string at the end of the script, and replace the argument with a pointer
+	// to it.
+
+	// The `pool` keyword is used to define how large the array of memory used
+	// to store local variables is. This must be provided via pointer by the
+	// user, and should be unique for each concurrently running script.
+	pool = 32;
+}
+
+asm {
+//	MACRO print ; string, x, y, [length]
+//		db PRINT_BYTE
+//		dw \1
+//		db \2, \3
+//		IF _NARG = 4
+//			db \4
+//		ELSE
+//			db 16
+//		ENDC
+}
+
+// Begin a script by specifying the environment you wish to use.
+// Then, provide an identifier, which will become an exported label in the
+// assembly output.
+script HelloWorld {
+	// Within a script, all evscript features are available so long as the
+	// standard environment is available.
+	// Any environment with a pool can define variables. However, without the
+	// standard environment they cannot be initialized.
+
+	// If an unknown variable name ever appears in an assignment expression,
+	// evscript will assume it is a global variable.
+	// For a global to be used in an operation, it must first be pulled into
+	// a local variable.
+	byte value = wTimesExecuted;
+	value += 1;
+	wTimesExecuted = value;
+
+	// Commands can be easily called as if they are functions.	
+	move_player(1, 1);
+	move_actor(wEnemy, 3, 1);
+
+	// Even commands in the standard enviroment can be used if desired, such as
+	// `goto()`
+	goto(my_label);
+	// A label can be defined using an identifier followed by a colon.
+my_label:
+	// This jump is obviously a no-op. While this compiler may introduce
+	// optimizations to optimize common patterns, it is not a priority, since
+	// scripts are expected to be relatively slow.
+
+	// The standard environment defines `yield()`, which is nearly identical to
+	// `return()`. It's intended for scripts which should pick up later, for
+	// example an entity's logic which must wait for the next tick.
+	yield();
+
+	print("Hello, world!");
+
+	// Since the standard environment defines a terminator, there is no need
+	// to write `return()` at the end of the script.
+}

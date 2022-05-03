@@ -1,0 +1,12 @@
+env script {
+	def return();
+	def debug(word);
+
+	section = "ROM";
+	terminator = 0;
+	pool = 32;
+}
+
+script {
+	debug();
+}
