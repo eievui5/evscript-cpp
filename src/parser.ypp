@@ -38,6 +38,7 @@
 	DEF "def" MAC "mac" USE "use"
 	TERM "terminator" SECT "section" POOL "pool"
 	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big"
+	DROP "drop"
 ;
 %token <std::string> IDENTIFIER "identifier"
 %token <int> NUMBER "number"
@@ -163,6 +164,11 @@ statement:
 | "identifier" ":" {
 	$$.type = statement_type::LABEL;
 	$$.identifier = $1;
+	drv.current_script.statements.push_back($$);
+}
+| "drop" "identifier" ";" {
+	$$.type = statement_type::DROP;
+	$$.identifier = $2;
 	drv.current_script.statements.push_back($$);
 };
 

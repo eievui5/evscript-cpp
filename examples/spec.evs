@@ -38,10 +38,7 @@ env std {
 	section = "ROMX";
 }
 
-// An environment can specify a size in bytes for its command prefix. This must
-// be large enough to contain all commands.
-// The default size is a byte.
-env script word {
+env script {
 	// An environment can include other environments with the `use` keyword. Most
 	// users will want to begin by importing the standard commands using `use std`.
 	// If this is not included, control structures such as `if` and `while`, and

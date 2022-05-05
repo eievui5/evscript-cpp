@@ -7,6 +7,6 @@ env script {
 	pool = 32;
 }
 
-script {
-	debug();
+script Debug {
+	debug("Hello, world!");
 }

@@ -5,8 +5,8 @@
 #include <vector>
 #include <unordered_map>
 
-enum class deftype { DEF, MAC, ALIAS };
-enum class partype { ARG, CON, VARARGS };
+enum deftype { DEF, MAC, ALIAS };
+enum partype { ARG, CON, VARARGS };
 enum class argtype { VAR, NUM, STR, ARG };
 
 static inline const char * default_type(unsigned size) {
@@ -33,6 +33,14 @@ struct type_definition {
 struct param {
 	partype type;
 	unsigned size;
+
+	void print(FILE * out) {
+		switch (type) {
+			case partype::ARG: fputs(default_type(size), out); break;
+			case partype::CON: fprintf(out, "const %s", default_type(size)); break;
+			case partype::VARARGS: fputs("...", out); break;
+		}
+	}
 };
 
 struct arg {
@@ -64,9 +72,10 @@ struct definition {
 			name.c_str()
 		);
 		if (parameters.size()) {
-			fprintf(out, "%s", default_type(parameters[0].size));
+			parameters[0].print(out);
 			for (size_t i = 1; i < parameters.size(); i++) {
-				fprintf(out, ", %s", default_type(parameters[i].size));
+				fputs(", ", out);
+				parameters[i].print(out);
 			}
 		}
 		fputc(')', out);
@@ -115,12 +124,16 @@ struct environment {
 		fprintf(out, "\tsection = %s;\n", section.c_str());
 		fprintf(out, "\tpool = %u;\n}\n", pool);
 	}
+
+	definition * get_define(std::string name) {
+		return &defines[name];
+	}
 };
 
 enum statement_type {
 	ASSIGN, CONST_ADD, CONST_SUB, CONST_MULT, CONST_DIV,
 	COPY, ADD, SUB, MULT, DIV,
-	DECLARE, DECLARE_ASSIGN, DECLARE_COPY, LABEL, CALL
+	DECLARE, DROP, DECLARE_ASSIGN, DECLARE_COPY, LABEL, CALL
 };
 
 struct statement {
@@ -178,6 +191,9 @@ struct statement {
 			}
 			fputs(");\n", out);
 			break;
+		case DROP:
+			fprintf(out, "drop %s;\n", identifier.c_str());
+			break;
 		}
 	}
 };
@@ -185,7 +201,8 @@ struct statement {
 struct script {
 	std::string env;
 	std::vector<statement> statements;
-
+	
+	void compile(const std::string& name, environment& env, FILE * out);
 	void print(FILE * out, const std::string& name) {
 		fprintf(out, "%s %s {\n", env.c_str(), name.c_str());
 		for (auto& statement : statements)

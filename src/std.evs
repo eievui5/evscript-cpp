@@ -1,0 +1,72 @@
+// Standard evscript environment. This implements bytecode for all language
+// features
+env std byte {
+	// Returns from a script and clears the script address to prevent reentry.
+	def return();
+	// Like a return, but leaves the script address intact to allow reentry.
+	def yield();
+	// jump to an address.
+	def goto(const ptr);
+	// jump only if the previous conditional evaluated true.
+	def goto_conditional(const ptr, byte);
+	// jump to another bank.
+	def goto_far(const farptr);
+	// jump to another bank only if the previous conditional evaluated true.
+	def goto_conditional_far(const farptr, byte);
+
+	// Variable operations.
+	def add(byte, byte, byte);
+	def sub(byte, byte, byte);
+	def mul(byte, byte, byte);
+	def div(byte, byte, byte);
+	def add_const(byte, const byte, byte);
+	def sub_const(byte, const byte, byte);
+	def mul_const(byte, const byte, byte);
+	def div_const(byte, const byte, byte);
+	// Conditionals
+	def equ(byte, byte, byte);
+	def not(byte, byte, byte);
+	def and(byte, byte, byte);
+	def or (byte, byte, byte);
+	def equ_const(byte, const byte, byte);
+	def not_const(byte, const byte, byte);
+
+	// Word operations are 4 bytes each, as word variables are indexed using a
+	// byte; the pool is limited to 256 entries.
+	def add_word(word, word, word);
+	def sub_word(word, word, word);
+	def mul_word(word, word, word);
+	def div_word(word, word, word);
+	// Constant operations; since the rhs is constant, these are 5 bytes.
+	def add_word_const(word, const word, word);
+	def sub_word_const(word, const word, word);
+	def mul_word_const(word, const word, word);
+	def div_word_const(word, const word, word);
+	// Conditionals
+	def equ_word(word, word, word);
+	def not_word(word, word, word);
+	def and_word(word, word, word);
+	def or_word(word, word, word);
+	def equ_word_const(word, const word, word);
+	def not_word_const(word, const word, word);
+
+	// Copies and loads
+	def copy(byte, byte); // copy one variable to another.
+	def load(byte, ptr); // load a byte from an address.
+	def store(ptr, byte); // store a byte to an address.
+	def copy_const(byte, const byte); // copy a constant to a variable.
+	def load_const(byte, const ptr); // load a byte from a constant address.
+	def store_const(const ptr, byte); // store a byte to a constant address.
+	def cast_8to16(word, byte);
+	def cast_16to8(byte, word);
+
+	// Misc commands offered by the standard environment.
+	def callasm(const ptr); // call an assembly function and return.
+	def callasm_far(const farptr); // call an assembly function in another bank.
+
+	section = "ROMX"
+	terminator = 0
+	pool = 0
+}
+
+// The standard environment is currently made up of 36 commands.

@@ -5,11 +5,11 @@ OBJS := \
 	$(patsubst src/%.cpp, obj/%.o, $(shell find src/ -name '*.cpp'))
 
 CXXFLAGS := -Isrc/include -Isrc/ -Iobj/ -std=c++17 -Wno-unused-result -Wno-parentheses -Wno-switch -MD
-RELEASEFLAGS := -Os -s -flto
+RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
 TESTFLAGS := examples/spec.evs
 
-CXXFLAGS += $(DEBUGFLAGS)
+CXXFLAGS += $(RELEASEFLAGS)
 
 all:
 	$(MAKE) $(BIN)
