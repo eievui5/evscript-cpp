@@ -71,10 +71,11 @@ script HelloWorld {
 	// evscript will assume it is a global variable.
 	// For a global to be used in an operation, it must first be pulled into
 	// a local variable.
-	byte value;
-	value = wTimesExecuted;
+	byte value = wTimesExecuted;
 	value += 1;
 	wTimesExecuted = value;
+	byte another = 2;
+	value = another;
 
 	// Commands can be easily called as if they are functions.	
 	move_player(1, 1);

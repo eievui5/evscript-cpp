@@ -47,6 +47,13 @@ public:
 		return -1;
 	}
 
+	variable * get(const std::string& name) {
+		for (auto& i : variables) {
+			if (i.name == name) return &i;
+		}
+		return nullptr;
+	}
+
 	variable_list(unsigned pool) { variables.resize(pool); }
 };
 
@@ -98,6 +105,19 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
+	auto print_argument_d = [&](size_t size, const arg& argument) {
+		if (argument.type == argtype::VAR) {
+			int var_index = varlist.lookup(argument.str);
+			if (var_index != -1) {
+				fmt::print(out, "\tdb {}", var_index);
+				return;
+			}
+		}
+
+		print_d(size);
+		print_argument(argument);
+	};
+
 	auto print_definition = [&](const std::string& name, const definition& def, const std::vector<arg>& args) {
 		fmt::print(out, "\t; {}\n", name);
 
@@ -113,8 +133,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			}
 			print_value(1, def.bytecode);
 			for (size_t i = 0; i < def.parameters.size(); i++) {
-				print_d(def.parameters[i].size);
-				print_argument(args[i]);
+				print_argument_d(def.parameters[i].size, args[i]);
 				fmt::print(out, "\n");
 			}
 		} break;
@@ -122,17 +141,16 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			definition& source_def = env.defines[def.alias];
 			print_value(1, source_def.bytecode);
 			for (size_t i = 0; i < source_def.parameters.size(); i++) {
-				print_d(source_def.parameters[i].size);
 				const arg& macarg = def.arguments[i];
 				switch (macarg.type) {
 				case argtype::STR:
-					fmt::print(out, "\"{}\"", macarg.str);
+					fmt::print(out, "\tdb \"{}\"", macarg.str);
 					break;
 				case argtype::ARG:
-					print_argument(args[macarg.value - 1]);
+					print_argument_d(source_def.parameters[i].size, args[macarg.value - 1]);
 					break;
 				default:
-					print_argument(macarg);
+					print_argument_d(source_def.parameters[i].size, macarg);
 					break;
 				}
 				fmt::print(out, "\n");
@@ -178,20 +196,87 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	for (const auto& stmt : statements) {
 		// ASSIGN, CONST_ADD, CONST_SUB, CONST_MULT, CONST_DIV, COPY, ADD, SUB, MULT, DIV
 		switch (stmt.type) {
+		case DECLARE_ASSIGN:
+			fmt::print(out,
+				"\t; Allocated {} at {}\n",
+				stmt.identifier,
+				varlist.alloc(stmt.size, false, stmt.identifier)
+			);
 		case ASSIGN: {
-			print_standard(
-				"copy_const",
-				{{argtype::VAR, stmt.identifier}, {argtype::NUM, .value = stmt.value}}
-			);
+			std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::NUM, .value=stmt.value}};
+			variable * var = varlist.get(stmt.identifier);
+			if (!var) err::fatal("{} is not defined", stmt.identifier);
+			switch (var->size) {
+			case 1:
+				print_standard("copy_const", args);
+				break;
+			case 2:
+				print_standard("copy_word_const", args);
+				break;
+			case 3: case 4:
+				err::fatal("Variables of size {} are not yet supported", var->size);
+			default:
+				err::fatal("Variables of size {} are not supported", var->size);
+			}
 		} break;
-		case COPY: {
-			// TODO: Give the compiler some way to determine which bytecode to
-			// use when compiling different operands. This should be trivial,
-			// but tedious.
-			print_standard(
-				"load_const",
-				{{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.operand}}
+		case DECLARE_COPY:
+			fmt::print(out,
+				"\t; Allocated {} at {}\n",
+				stmt.identifier,
+				varlist.alloc(stmt.size, false, stmt.identifier)
 			);
+		case COPY: {
+			// TODO: This currently only works for global load/stores
+			std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.operand}};
+			// Is the destination declared as a variable?
+			if (varlist.lookup(stmt.identifier) != -1 && varlist.lookup(stmt.operand) != -1) {
+				// Check its size
+				unsigned size = varlist.get(stmt.identifier)->size;
+				switch (size) {
+				case 1:
+					print_standard("copy", args);
+					break;
+				case 2:
+					print_standard("copy_word", args);
+					break;
+				case 3: case 4:
+					err::fatal("Variables of size {} are not yet supported", size);
+				default:
+					err::fatal("Variables of size {} are not supported", size);
+				}
+			} else if (varlist.lookup(stmt.identifier) != -1) {
+				// Check its size
+				unsigned size = varlist.get(stmt.identifier)->size;
+				switch (size) {
+				case 1:
+					print_standard("load_const", args);
+					break;
+				case 2:
+					print_standard("load_word_const", args);
+					break;
+				case 3: case 4:
+					err::fatal("Variables of size {} are not yet supported", size);
+				default:
+					err::fatal("Variables of size {} are not supported", size);
+				}
+			} else if (varlist.lookup(stmt.operand) != -1) {
+				// Check its size
+				unsigned size = varlist.get(stmt.operand)->size;
+				switch (size) {
+				case 1:
+					print_standard("store_const", args);
+					break;
+				case 2:
+					print_standard("store_word_const", args);
+					break;
+				case 3: case 4:
+					err::fatal("Variables of size {} are not yet supported", size);
+				default:
+					err::fatal("Variables of size {} are not supported", size);
+				}
+			} else {
+				err::fatal("Cannot copy between two global vars, as no size is known");
+			}
 		} break;
 		case CALL: {
 			definition * def = env.get_define(stmt.identifier);
