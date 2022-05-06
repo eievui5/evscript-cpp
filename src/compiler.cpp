@@ -54,6 +54,10 @@ public:
 		return nullptr;
 	}
 
+	variable& get(int id) {
+		return variables[id];
+	}
+
 	variable_list(unsigned pool) { variables.resize(pool); }
 };
 
@@ -189,117 +193,110 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_definition(name, *def, args);
 	};
 
+	auto compile_ASSIGN = [&](const statement& stmt) {
+		const char * command_table[] = {
+			"copy_const", "copy_word_const", "copy_short_const", "copy_long_const"
+		};
+		std::vector<arg> args = {
+			{argtype::VAR, stmt.identifier}, {argtype::NUM, .value=stmt.value}
+		};
+		variable * var = varlist.get(stmt.identifier);
+
+		if (!var) err::fatal("{} is not defined", stmt.identifier);
+		if (var->size >= 1 && var->size <= 4) {
+			print_standard(command_table[var->size], args);
+		} else {
+			err::fatal("Variables of size {} are not supported", var->size);
+		}
+	};
+
+	auto compile_DECLARE = [&](const statement& stmt) {
+		fmt::print(out,
+			"\t; Allocated {} at {}\n",
+			stmt.identifier, varlist.alloc(stmt.size, false, stmt.identifier)
+		);
+	};
+
+	auto compile_DECLARE_ASSIGN = [&](const statement& stmt) {
+		compile_DECLARE(stmt);
+		compile_ASSIGN(stmt);
+	};
+
+	auto compile_COPY = [&](const statement& stmt) {
+		std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.operand}};
+		int iden_index = varlist.lookup(stmt.identifier);
+		int oper_index = varlist.lookup(stmt.operand);
+		unsigned op_size;
+		const char ** command_table;
+		// Is the destination declared as a variable?
+		if (iden_index != -1 && oper_index != -1) {
+			const char * table[] = {
+				"copy", "copy_word", "copy_short", "copy_long"
+			};
+			op_size = varlist.get(iden_index).size;
+			command_table = table;
+		} else if (iden_index != -1) {
+			const char * table[] = {
+				"load_const", "load_word_const",
+				"load_short_const", "load_long_const"
+			};
+			op_size = varlist.get(iden_index).size;
+			command_table = table;
+		} else if (varlist.lookup(stmt.operand) != -1) {
+			const char * table[] = {
+				"store_const", "store_word_const",
+				"store_short_const", "store_long_const"
+			};
+			op_size = varlist.get(oper_index).size;
+			command_table = table;
+		} else {
+			err::fatal("Cannot copy between two global vars, as no size is known");
+		}
+		if (op_size >= 1 && op_size <= 4) {
+			print_standard(command_table[op_size], args);
+		} else {
+			err::fatal("Variables of size {} are not supported", op_size);
+		}
+	};
+
+	auto compile_DECLARE_COPY = [&](const statement& stmt) {
+		compile_DECLARE(stmt);
+		compile_COPY(stmt);
+	};
+
+	auto compile_CALL = [&](const statement& stmt) {
+		definition * def = env.get_define(stmt.identifier);
+		if (!def) err::fatal("Definition of {} not found", stmt.identifier); 
+		print_definition(stmt.identifier, *def, stmt.args);
+	};
+
+	auto compile_DROP = [&](const statement& stmt) {
+		fmt::print(out, "\t; Dropped {}", stmt.identifier);
+		varlist.free(stmt.identifier);
+	};
+
+	auto compile_LABEL = [&](const statement& stmt) {
+		fmt::print(out, ".{}\n", stmt.identifier);
+	};
+
 	fmt::print(out, "SECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
 	for (const auto& stmt : statements) {
 		if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
 	}
 	for (const auto& stmt : statements) {
+		#define COMPILE(type) case type: compile_##type(stmt); break
 		// ASSIGN, CONST_ADD, CONST_SUB, CONST_MULT, CONST_DIV, COPY, ADD, SUB, MULT, DIV
 		switch (stmt.type) {
-		case DECLARE_ASSIGN:
-			fmt::print(out,
-				"\t; Allocated {} at {}\n",
-				stmt.identifier,
-				varlist.alloc(stmt.size, false, stmt.identifier)
-			);
-		case ASSIGN: {
-			std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::NUM, .value=stmt.value}};
-			variable * var = varlist.get(stmt.identifier);
-			if (!var) err::fatal("{} is not defined", stmt.identifier);
-			switch (var->size) {
-			case 1:
-				print_standard("copy_const", args);
-				break;
-			case 2:
-				print_standard("copy_word_const", args);
-				break;
-			case 3: case 4:
-				err::fatal("Variables of size {} are not yet supported", var->size);
-			default:
-				err::fatal("Variables of size {} are not supported", var->size);
-			}
-		} break;
-		case DECLARE_COPY:
-			fmt::print(out,
-				"\t; Allocated {} at {}\n",
-				stmt.identifier,
-				varlist.alloc(stmt.size, false, stmt.identifier)
-			);
-		case COPY: {
-			// TODO: This currently only works for global load/stores
-			std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.operand}};
-			// Is the destination declared as a variable?
-			if (varlist.lookup(stmt.identifier) != -1 && varlist.lookup(stmt.operand) != -1) {
-				// Check its size
-				unsigned size = varlist.get(stmt.identifier)->size;
-				switch (size) {
-				case 1:
-					print_standard("copy", args);
-					break;
-				case 2:
-					print_standard("copy_word", args);
-					break;
-				case 3: case 4:
-					err::fatal("Variables of size {} are not yet supported", size);
-				default:
-					err::fatal("Variables of size {} are not supported", size);
-				}
-			} else if (varlist.lookup(stmt.identifier) != -1) {
-				// Check its size
-				unsigned size = varlist.get(stmt.identifier)->size;
-				switch (size) {
-				case 1:
-					print_standard("load_const", args);
-					break;
-				case 2:
-					print_standard("load_word_const", args);
-					break;
-				case 3: case 4:
-					err::fatal("Variables of size {} are not yet supported", size);
-				default:
-					err::fatal("Variables of size {} are not supported", size);
-				}
-			} else if (varlist.lookup(stmt.operand) != -1) {
-				// Check its size
-				unsigned size = varlist.get(stmt.operand)->size;
-				switch (size) {
-				case 1:
-					print_standard("store_const", args);
-					break;
-				case 2:
-					print_standard("store_word_const", args);
-					break;
-				case 3: case 4:
-					err::fatal("Variables of size {} are not yet supported", size);
-				default:
-					err::fatal("Variables of size {} are not supported", size);
-				}
-			} else {
-				err::fatal("Cannot copy between two global vars, as no size is known");
-			}
-		} break;
-		case CALL: {
-			definition * def = env.get_define(stmt.identifier);
-			if (!def)
-				err::fatal("Definition of {} not found", stmt.identifier); 
-			print_definition(stmt.identifier, *def, stmt.args);
-			break;
+			COMPILE(ASSIGN);
+			COMPILE(CALL);
+			COMPILE(COPY);
+			COMPILE(DECLARE);
+			COMPILE(DECLARE_ASSIGN);
+			COMPILE(DECLARE_COPY);
+			COMPILE(DROP);
+			COMPILE(LABEL);
 		}
-		case DECLARE:
-			fmt::print(out,
-				"\t; Allocated {} at {}\n",
-				stmt.identifier,
-				varlist.alloc(stmt.size, false, stmt.identifier)
-			);
-			break;
-		case DROP:
-			fmt::print(out, "\t; Dropped {}", stmt.identifier);
-			varlist.free(stmt.identifier);
-			break;
-		case LABEL:
-			fmt::print(out, ".{}\n", stmt.identifier);
-			break;
-		}
+		#undef COMPILE
 	}
 	print_value(1, env.terminator);
 	// Define constant strings
