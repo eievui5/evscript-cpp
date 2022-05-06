@@ -88,7 +88,7 @@ environment:
 };
 declarations: %empty {} | declarations declaration {};
 declaration:
-  "use" "identifier" ";" { /* TODO imports */ }
+  "use" "identifier" ";" { drv.import($2); }
 | "def" "identifier" "(" parameters ")" ";" {
 	auto& this_def = drv.current_environment.defines[$2];
 	this_def.type = deftype::DEF;

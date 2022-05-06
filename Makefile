@@ -3,13 +3,14 @@ OBJS := \
 	$(patsubst src/%.ypp, obj/%.o, $(shell find src/ -name '*.ypp')) \
 	$(patsubst src/%.lpp, obj/%.o, $(shell find src/ -name '*.lpp')) \
 	$(patsubst src/%.cpp, obj/%.o, $(shell find src/ -name '*.cpp'))
+DEPS := $(patsubst obj/%.o, obj/%.d, $(OBJS))
 
-CXXFLAGS := -Isrc/include -Isrc/ -Iobj/ -std=c++17 -Wno-unused-result -Wno-parentheses -Wno-switch -MD
+CXXFLAGS := -Isrc/include -Isrc/ -Iobj/ -std=c++20 -Wno-unused-result -Wno-parentheses -Wno-switch -MD
 RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
-TESTFLAGS := examples/spec.evs
+TESTFLAGS := -o bin/out.asm examples/spec.evs
 
-CXXFLAGS += $(RELEASEFLAGS)
+CXXFLAGS += $(DEBUGFLAGS)
 
 all:
 	$(MAKE) $(BIN)

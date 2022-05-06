@@ -57,6 +57,12 @@ env std byte {
 	def copy_const(byte, const byte); // copy a constant to a variable.
 	def load_const(byte, const ptr); // load a byte from a constant address.
 	def store_const(const ptr, byte); // store a byte to a constant address.
+	def copy_word(byte, byte); // copy one variable to another.
+	def load_word(byte, ptr); // load a byte from an address.
+	def store_word(ptr, byte); // store a byte to an address.
+	def copy_word_const(byte, const byte); // copy a constant to a variable.
+	def load_word_const(byte, const ptr); // load a byte from a constant address.
+	def store_word_const(const ptr, byte); // store a byte to a constant address.
 	def cast_8to16(word, byte);
 	def cast_16to8(byte, word);
 

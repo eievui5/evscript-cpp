@@ -126,6 +126,7 @@ struct environment {
 	}
 
 	definition * get_define(std::string name) {
+		if (!defines.contains(name)) return nullptr;
 		return &defines[name];
 	}
 };
@@ -202,7 +203,7 @@ struct script {
 	std::string env;
 	std::vector<statement> statements;
 	
-	void compile(const std::string& name, environment& env, FILE * out);
+	void compile(FILE * out, const std::string& name, environment& env);
 	void print(FILE * out, const std::string& name) {
 		fprintf(out, "%s %s {\n", env.c_str(), name.c_str());
 		for (auto& statement : statements)

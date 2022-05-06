@@ -45,21 +45,37 @@ inline static void load_standard_environment(environment& env) {
 		{ "sub_word_const", {DEF, i++, {{ARG, 2}, {ARG, 2}, {CON, 2}}}},
 		{ "mul_word_const", {DEF, i++, {{ARG, 2}, {ARG, 2}, {CON, 2}}}},
 		{ "div_word_const", {DEF, i++, {{ARG, 2}, {ARG, 2}, {CON, 2}}}},
+		{ "equ_word", {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
+		{ "not_word", {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
+		{ "and_word", {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
+		{ "or_word",  {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
+		{ "equ_word_const", {DEF, i++, {{ARG, 2}, {CON, 2}, {ARG, 2}}}},
+		{ "not_word_const", {DEF, i++, {{ARG, 2}, {CON, 2}, {ARG, 2}}}},
 
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
-		// { "name", {DEF, i++, {}},
+		{ "copy",  {DEF, i++, {{ARG, 1}, {ARG, 1}}}},
+		{ "load",  {DEF, i++, {{ARG, 1}, {ARG, 2}}}},
+		{ "store", {DEF, i++, {{ARG, 2}, {ARG, 1}}}},
+		{ "copy_const",  {DEF, i++, {{ARG, 1}, {CON, 1}}}},
+		{ "load_const",  {DEF, i++, {{ARG, 1}, {CON, 2}}}},
+		{ "store_const", {DEF, i++, {{CON, 2}, {ARG, 1}}}},
+
+		{ "copy_word",  {DEF, i++, {{ARG, 2}, {ARG, 2}}}},
+		{ "load_word",  {DEF, i++, {{ARG, 2}, {ARG, 2}}}},
+		{ "store_word", {DEF, i++, {{ARG, 2}, {ARG, 2}}}},
+		{ "copy_word_const",  {DEF, i++, {{ARG, 2}, {CON, 2}}}},
+		{ "load_word_const",  {DEF, i++, {{ARG, 2}, {CON, 2}}}},
+		{ "store_word_const", {DEF, i++, {{CON, 2}, {ARG, 2}}}},
+
+		{ "cast_8to16", {DEF, i++, {{ARG, 2}, {ARG, 1}}}},
+		{ "cast_16to8", {DEF, i++, {{ARG, 1}, {ARG, 2}}}},
+
+		{ "callasm", {DEF, i++, {{CON, 2}}}},
+		{ "callasm_far", {DEF, i++, {{CON, 3}}}},
 	};
 
 	for (size_t i = 0; i < sizeof(stddefs) / sizeof(*stddefs); i++) {
 		env.defines[stddefs[i].name] = stddefs[i].def;
+		env.bytecode_count++;
 	}
 
 	env.section = "ROMX";
@@ -72,7 +88,6 @@ struct driver {
 	bool trace_parsing = false;
 	bool trace_scanning = false;
 
-	std::unordered_map<std::string, int> variables;
 	std::unordered_map<std::string, type_definition> typedefs;
 	std::unordered_map<std::string, environment> environments;
 	std::unordered_map<std::string, script> scripts;
@@ -88,6 +103,28 @@ struct driver {
 
 	unsigned get_type(std::string name) {
 		return typedefs[name].size;
+	}
+
+	void import(std::string env) {
+		if (env == "std") {
+			load_standard_environment(current_environment);
+			return;
+		}
+
+		if (!environments.contains(env)) {
+			fprintf(stderr, "Environment %s does not exist", env.c_str());
+			return;
+		}
+
+		for (auto& [name, def] : environments[env].defines) {
+			current_environment.defines[name] = def;
+			current_environment.bytecode_count++;
+		}
+
+		current_environment.pool = environments[env].pool;
+		current_environment.section = environments[env].section;
+		current_environment.terminator = environments[env].terminator;
+		current_environment.bytecode_size = environments[env].bytecode_size;
 	}
 
 	driver() {

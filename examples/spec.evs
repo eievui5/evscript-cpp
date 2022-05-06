@@ -2,6 +2,7 @@
 // byte: 1 byte
 // word: 2 bytes
 // ptr: 2 bytes
+// short: 3 bytes
 // farptr: 3 bytes
 // long: 4 bytes
 
@@ -17,33 +18,15 @@ typedef_big position = short;
 // commands needed by the evscript language. Without it, many features will be
 // missing.
 
-// The following is an example of the standard environment:
-env std {
-	// Commands are defined using the `def` keyword followed by an identifier
-	// and a set of parenthesis.
-	// The parenthesis describe the size of the arguments in bytes.
-	def return();
-	// If the argument is a constant value, the `const` keyword should be used.
-	def goto(const word);
-	def compare(byte, byte);
-	def const_compare(byte, const byte);
-	// ...
-	// A terminator byte may be provided by the environment.
-	// Most users will not need this unless they are not using the standard
-	// environment.
-	terminator = 0;
-	// An environment may specify a default section type to be placed in.
-	// Only ROM0 and ROMX will properly assemble, but an address or bank may be
-	// provided, such as "ROMX, BANK[2]".
-	section = "ROMX";
-}
-
 env script {
 	// An environment can include other environments with the `use` keyword. Most
 	// users will want to begin by importing the standard commands using `use std`.
 	// If this is not included, control structures such as `if` and `while`, and
 	// operators such as `=` and `+` will not be available.
 	use std;
+	// Commands are defined using the `def` keyword followed by an identifier
+	// and a set of parenthesis. The parenthesis contain argument types.
+	// If the argument is a constant value, the `const` keyword should be used.
 	def move_actor(word, const byte, const byte);
 	// The `mac` keyword can be used to define an alias for another command,
 	// optionally defining default arguments. `\n` stands for the nth argument,
@@ -51,7 +34,7 @@ env script {
 	mac move_player(const byte, const byte) = move_actor(wPlayer, $1, $2);
 	// Additionally, `mac` can be used to alias an RGBASM macro, if the value on
 	// the right is not a command. This allows you to use varargs. 
-	mac print(const word, ...) = print;
+	mac print(const word, ...) = print_string;
 
 	// If a string is passed to a `const` argument, evscript will define the
 	// string at the end of the script, and replace the argument with a pointer
@@ -88,7 +71,8 @@ script HelloWorld {
 	// evscript will assume it is a global variable.
 	// For a global to be used in an operation, it must first be pulled into
 	// a local variable.
-	byte value = wTimesExecuted;
+	byte value;
+	value = wTimesExecuted;
 	value += 1;
 	wTimesExecuted = value;
 
