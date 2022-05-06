@@ -2,7 +2,7 @@ env script {
 	def return();
 	def debug(word);
 
-	section = "ROM";
+	section = "ROMX";
 	terminator = 0;
 	pool = 32;
 }

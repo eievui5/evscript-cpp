@@ -1,12 +1,10 @@
 #include <fmt/format.h>
-#include <stdio.h>
 #include <unordered_set>
 #include "exception.hpp"
 #include "types.hpp"
 
 struct variable {
-	bool used;
-	unsigned size;
+	unsigned size = 0;
 	bool internal;
 	std::string name;
 };
@@ -18,13 +16,16 @@ public:
 	size_t alloc(unsigned size, bool internal, const std::string& name) {
 		size_t i = 0;
 		while (i <= variables.size() - size) {
-			if (!variables[i].used) goto found;
+			for (size_t j = i; j < i + size; j++) {
+				if (variables[i].size) goto next;
+			}
+			goto found;
+		next:
 			i += variables[i].size;
 		}
 		err::fatal("Out of pool space.");
 
 	found:
-		variables[i].used = true;
 		variables[i].size = size;
 		variables[i].internal = internal;
 		variables[i].name = name;
@@ -33,7 +34,7 @@ public:
 
 	void free(const std::string& name) {
 		for (auto& var : variables) if (var.name == name) {
-			var.used = false;
+			var.size = 0;
 			return;
 		}
 		err::fatal("No variable named \"{}\"", name);
@@ -46,9 +47,7 @@ public:
 		return -1;
 	}
 
-	variable_list(unsigned pool) {
-		variables.resize(pool);
-	}
+	variable_list(unsigned pool) { variables.resize(pool); }
 };
 
 typedef std::vector<std::string> string_table;
@@ -61,9 +60,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto print_d = [&](size_t size) {
 		switch (size) {
-		case 1: fputs("\tdb ", out); break;
-		case 2: fputs("\tdw ", out); break;
-		case 4: fputs("\tdl", out); break;
+		case 1: fmt::print(out, "\tdb "); break;
+		case 2: fmt::print(out, "\tdw "); break;
+		case 4: fmt::print(out, "\tdl "); break;
 		default:
 			err::fatal("Cannot output value of size {}", size);
 			break;
@@ -82,7 +81,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			if (var_index != -1) {
 				fmt::print(out, "{}", var_index);
 			} else {
-				if (l_table.contains(argument.str)) fputc('.', out);
+				if (l_table.contains(argument.str)) fmt::print(out, ".");
 				fmt::print(out, "{}", argument.str);
 			}
 		} break;
@@ -116,7 +115,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			for (size_t i = 0; i < def.parameters.size(); i++) {
 				print_d(def.parameters[i].size);
 				print_argument(args[i]);
-				fputc('\n', out);
+				fmt::print(out, "\n");
 			}
 		} break;
 		case MAC: {
@@ -136,7 +135,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 					print_argument(macarg);
 					break;
 				}
-				fputc('\n', out);
+				fmt::print(out, "\n");
 			}
 		} break;
 		case ALIAS: {
@@ -145,7 +144,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			for (; i < def.parameters.size(); i++) {
 				if (def.parameters[i].type == VARARGS) break;
 				print_argument(args[i]);
-				fputs(", ", out);
+				fmt::print(out, ", ");
 			}
 			for (; i < args.size(); i++) {
 				// Special case for string literals
@@ -154,9 +153,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				} else {
 					print_argument(args[i]);
 				}
-				fputs(", ", out);
+				fmt::print(out, ", ");
 			}
-			fputc('\n', out);
+			fmt::print(out, "\n");
 		} break;
 		}
 	};
