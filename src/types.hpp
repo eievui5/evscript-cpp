@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdio.h>
+#include <fmt/format.h>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -23,9 +24,9 @@ struct type_definition {
 	bool big_endian = false;
 
 	void print(FILE * out, const std::string& name) {
-		fprintf(out,
-			"typedef%s %s = %u;\n",
-			big_endian ? "_big" : "", name.c_str(), size
+		fmt::print(out,
+			"typedef{} {} = {};\n",
+			big_endian ? "_big" : "", name, size
 		);
 	}
 };
@@ -37,7 +38,7 @@ struct param {
 	void print(FILE * out) {
 		switch (type) {
 			case partype::ARG: fputs(default_type(size), out); break;
-			case partype::CON: fprintf(out, "const %s", default_type(size)); break;
+			case partype::CON: fmt::print(out, "const {}", default_type(size)); break;
 			case partype::VARARGS: fputs("...", out); break;
 		}
 	}
@@ -51,9 +52,9 @@ struct arg {
 	void print(FILE * out) {
 		switch (type) {
 			case argtype::VAR: fputs(str.c_str(), out); break;
-			case argtype::NUM: fprintf(out, "%u", value); break;
-			case argtype::STR: fprintf(out, "\"%s\"", str.c_str()); break;
-			case argtype::ARG: fprintf(out, "$%u", value); break;
+			case argtype::NUM: fmt::print(out, "{}", value); break;
+			case argtype::STR: fmt::print(out, "\"{}\"", str); break;
+			case argtype::ARG: fmt::print(out, "${}", value); break;
 		}
 	}
 };
@@ -66,10 +67,10 @@ struct definition {
 	std::vector<arg> arguments;
 
 	void print(FILE * out, const std::string& name) {
-		fprintf(out,
-			"\t%s %s(",
+		fmt::print(out,
+			"\t{} {}(",
 			type == deftype::DEF ? "def" : "mac",
-			name.c_str()
+			name
 		);
 		if (parameters.size()) {
 			parameters[0].print(out);
@@ -80,7 +81,7 @@ struct definition {
 		}
 		fputc(')', out);
 		if (type != deftype::DEF) {
-			fprintf(out, " = %s", alias.c_str());
+			fmt::print(out, " = {}", alias);
 			if (type == deftype::MAC) {
 				fputc('(', out);
 				if (arguments.size()) {
@@ -115,14 +116,14 @@ struct environment {
 	}
 
 	void print(FILE * out, const std::string name) {
-		fprintf(out, "env %s ", name.c_str());
-		if (bytecode_size != 1) fprintf(out, "%s ", default_type(bytecode_size));
+		fmt::print(out, "env {} ", name);
+		if (bytecode_size != 1) fmt::print(out, "{} ", default_type(bytecode_size));
 		fputs("{\n", out);
 		for (auto& [def, def_info] : defines)
 			def_info.print(out, def);
-		fprintf(out, "\tterminator = %u;\n", terminator);
-		fprintf(out, "\tsection = %s;\n", section.c_str());
-		fprintf(out, "\tpool = %u;\n}\n", pool);
+		fmt::print(out, "\tterminator = {};\n", terminator);
+		fmt::print(out, "\tsection = {};\n", section);
+		fmt::print(out, "\tpool = {};\n}\n", pool);
 	}
 
 	definition * get_define(std::string name) {
@@ -148,41 +149,41 @@ struct statement {
 	void print(FILE * out) {
 		switch (type) {
 		case ASSIGN: case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
-			fprintf(out, "\t%s ", identifier.c_str());
+			fmt::print(out, "\t{} ", identifier);
 			switch (type) {
 			case CONST_ADD: fputc('+', out); break;
 			case CONST_SUB: fputc('-', out); break;
 			case CONST_MULT: fputc('*', out); break;
 			case CONST_DIV: fputc('/', out); break;
 			}
-			fprintf(out, "= %u;\n", value);
+			fmt::print(out, "= {};\n", value);
 			break;
 		case COPY: case ADD: case SUB: case MULT: case DIV:
-			fprintf(out, "\t%s ", identifier.c_str());
+			fmt::print(out, "\t{} ", identifier);
 			switch (type) {
 			case ADD: fputc('+', out); break;
 			case SUB: fputc('-', out); break;
 			case MULT: fputc('*', out); break;
 			case DIV: fputc('/', out); break;
 			}
-			fprintf(out, "= %s;\n", operand.c_str());
+			fmt::print(out, "= {};\n", operand);
 			break;
 		case DECLARE:
-			fprintf(out, "\t%s %s;\n", default_type(size), identifier.c_str());
+			fmt::print(out, "\t{} {};\n", default_type(size), identifier);
 			break;
 		case DECLARE_ASSIGN: case DECLARE_COPY:
-			fprintf(out, "\t%s %s = ", default_type(size), identifier.c_str());
+			fmt::print(out, "\t{} {} = ", default_type(size), identifier);
 			if (type == DECLARE_ASSIGN) {
-				fprintf(out, "%u;\n", value);
+				fmt::print(out, "{};\n", value);
 			} else {
-				fprintf(out, "%s;\n", operand.c_str());
+				fmt::print(out, "{};\n", operand);
 			}
 			break;
 		case LABEL:
-			fprintf(out, "%s:\n", identifier.c_str());
+			fmt::print(out, "{}:\n", identifier);
 			break;
 		case CALL:
-			fprintf(out, "\t%s(", identifier.c_str());
+			fmt::print(out, "\t{}(", identifier);
 			if (args.size()) {
 				args[0].print(out);
 				for (size_t i = 1; i < args.size(); i++) {
@@ -193,7 +194,7 @@ struct statement {
 			fputs(");\n", out);
 			break;
 		case DROP:
-			fprintf(out, "drop %s;\n", identifier.c_str());
+			fmt::print(out, "drop {};\n", identifier);
 			break;
 		}
 	}
@@ -205,7 +206,7 @@ struct script {
 	
 	void compile(FILE * out, const std::string& name, environment& env);
 	void print(FILE * out, const std::string& name) {
-		fprintf(out, "%s %s {\n", env.c_str(), name.c_str());
+		fmt::print(out, "{} {} {\n", env, name);
 		for (auto& statement : statements)
 			statement.print(out);
 		fputs("}\n", out);

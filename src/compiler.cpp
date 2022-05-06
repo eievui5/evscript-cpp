@@ -1,3 +1,4 @@
+#include <fmt/format.h>
 #include <stdio.h>
 #include <unordered_set>
 #include "exception.hpp"
@@ -20,7 +21,7 @@ public:
 			if (!variables[i].used) goto found;
 			i += variables[i].size;
 		}
-		fatal("Out of pool space.");
+		err::fatal("Out of pool space.");
 
 	found:
 		variables[i].used = true;
@@ -35,7 +36,7 @@ public:
 			var.used = false;
 			return;
 		}
-		fatal("No variable named \"%s\"", name.c_str());
+		err::fatal("No variable named \"{}\"", name);
 	}
 
 	int lookup(const std::string& name) {
@@ -64,14 +65,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		case 2: fputs("\tdw ", out); break;
 		case 4: fputs("\tdl", out); break;
 		default:
-			fatal("Cannot output value of size %zu", size);
+			err::fatal("Cannot output value of size {}", size);
 			break;
 		}
 	};
 
 	auto print_value = [&](size_t size, unsigned value) {
 		print_d(size);
-		fprintf(out, "%u\n", value);
+		fmt::print(out, "{}\n", value);
 	};
 
 	auto print_argument = [&](const arg& argument) {
@@ -79,36 +80,36 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		case argtype::VAR: {
 			int var_index = varlist.lookup(argument.str);
 			if (var_index != -1) {
-				fprintf(out, "%i", var_index);
+				fmt::print(out, "{}", var_index);
 			} else {
 				if (l_table.contains(argument.str)) fputc('.', out);
-				fprintf(out, "%s", argument.str.c_str());
+				fmt::print(out, "{}", argument.str);
 			}
 		} break;
 		case argtype::NUM:
-			fprintf(out, "%u", argument.value);
+			fmt::print(out, "{}", argument.value);
 			break;
 		case argtype::STR:
-			fprintf(out, ".string_table%zu", s_table.size());
+			fmt::print(out, ".string_table{}", s_table.size());
 			s_table.push_back(argument.str);
 			break;
 		case argtype::ARG:
-			fatal("Variable arguments are only allowed in macro definitions");
+			err::fatal("Variable arguments are only allowed in macro definitions");
 			break;
 		}
 	};
 
 	auto print_definition = [&](const std::string& name, const definition& def, const std::vector<arg>& args) {
-		fprintf(out, "\t; %s\n", name.c_str());
+		fmt::print(out, "\t; {}\n", name);
 
 		switch (def.type) {
 		case DEF: {
 			if (def.parameters.size() > args.size()) {
-				fatal("Not enough arguments to %s.", name.c_str());
+				err::fatal("Not enough arguments to {}.", name);
 			} else {
 				int dif = args.size() - def.parameters.size();
 				if (dif > 0) {
-					warn("%i excess argument%s to %s", dif, dif == 1 ? "" : "s", name.c_str());
+					err::warn("{} excess argument{} to {}", dif, dif == 1 ? "" : "s", name);
 				}
 			}
 			print_value(1, def.bytecode);
@@ -126,7 +127,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				const arg& macarg = def.arguments[i];
 				switch (macarg.type) {
 				case argtype::STR:
-					fprintf(out, "\"%s\"", macarg.str.c_str());
+					fmt::print(out, "\"{}\"", macarg.str);
 					break;
 				case argtype::ARG:
 					print_argument(args[macarg.value - 1]);
@@ -139,7 +140,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			}
 		} break;
 		case ALIAS: {
-			fprintf(out, "\t%s ", def.alias.c_str());
+			fmt::print(out, "\t{} ", def.alias);
 			size_t i = 0;
 			for (; i < def.parameters.size(); i++) {
 				if (def.parameters[i].type == VARARGS) break;
@@ -149,7 +150,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			for (; i < args.size(); i++) {
 				// Special case for string literals
 				if (args[i].type == argtype::STR) {
-					fprintf(out, "\"%s\"", args[i].str.c_str());
+					fmt::print(out, "\"{}\"", args[i].str);
 				} else {
 					print_argument(args[i]);
 				}
@@ -163,15 +164,15 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	auto print_standard = [&](const std::string& name, const std::vector<arg>& args) {
 		definition * def = env.get_define(name);
 		if (!def)
-			fatal(
-				"Definition of %1$s not found.\n"
-				"Please `use std;` in your environment or provide an implementation of %1$s",
-				name.c_str()
+			err::fatal(
+				"Definition of {0} not found.\n"
+				"Please `use std;` in your environment or provide an implementation of {0}",
+				name
 			);
 		print_definition(name, *def, args);
 	};
 
-	fprintf(out, "SECTION \"%1$s evscript section\", %2$s\n%1$s::\n", name.c_str(), env.section.c_str());
+	fmt::print(out, "SECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
 	for (const auto& stmt : statements) {
 		if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
 	}
@@ -196,29 +197,29 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		case CALL: {
 			definition * def = env.get_define(stmt.identifier);
 			if (!def)
-				fatal("Definition of %s not found", stmt.identifier.c_str()); 
+				err::fatal("Definition of {} not found", stmt.identifier); 
 			print_definition(stmt.identifier, *def, stmt.args);
 			break;
 		}
 		case DECLARE:
-			fprintf(out,
-				"\t; Allocated %s at %zu\n",
-				stmt.identifier.c_str(),
+			fmt::print(out,
+				"\t; Allocated {} at {}\n",
+				stmt.identifier,
 				varlist.alloc(stmt.size, false, stmt.identifier)
 			);
 			break;
 		case DROP:
-			fprintf(out, "\t; Dropped %s", stmt.identifier.c_str());
+			fmt::print(out, "\t; Dropped {}", stmt.identifier);
 			varlist.free(stmt.identifier);
 			break;
 		case LABEL:
-			fprintf(out, ".%s\n", stmt.identifier.c_str());
+			fmt::print(out, ".{}\n", stmt.identifier);
 			break;
 		}
 	}
 	print_value(1, env.terminator);
 	// Define constant strings
 	for (size_t i = 0; i < s_table.size(); i++) {
-		fprintf(out, ".string_table%zu db \"%s\", 0\n", i, s_table[i].c_str());
+		fmt::print(out, ".string_table{} db \"{}\", 0\n", i, s_table[i]);
 	}
 }

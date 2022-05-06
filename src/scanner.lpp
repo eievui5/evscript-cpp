@@ -123,7 +123,7 @@ void driver::scan_begin() {
 	if (file.empty() || file == "-") {
 		yyin = stdin;
 	} else if (!(yyin = fopen(file.c_str(), "r"))) {
-		fatal("failed to open %s: %s\n", file.c_str(), strerror(errno));
+		err::fatal("failed to open {}: {}\n", file, strerror(errno));
 	}
 }
 

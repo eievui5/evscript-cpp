@@ -2,6 +2,7 @@
 
 #include <string>
 #include <unordered_map>
+#include "exception.hpp"
 #include "parser.hpp"
 #include "types.hpp"
 
@@ -112,7 +113,7 @@ struct driver {
 		}
 
 		if (!environments.contains(env)) {
-			fprintf(stderr, "Environment %s does not exist", env.c_str());
+			err::warn("Environment {} does not exist", env);
 			return;
 		}
 

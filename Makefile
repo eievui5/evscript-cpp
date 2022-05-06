@@ -3,9 +3,11 @@ OBJS := \
 	$(patsubst src/%.ypp, obj/%.o, $(shell find src/ -name '*.ypp')) \
 	$(patsubst src/%.lpp, obj/%.o, $(shell find src/ -name '*.lpp')) \
 	$(patsubst src/%.cpp, obj/%.o, $(shell find src/ -name '*.cpp'))
-DEPS := $(patsubst obj/%.o, obj/%.d, $(OBJS))
 
-CXXFLAGS := -Isrc/include -Isrc/ -Iobj/ -std=c++20 -Wno-unused-result -Wno-parentheses -Wno-switch -MD
+CXXFLAGS := \
+	-std=c++20 -MD \
+	-Isrc/include -Isrc/ -Iobj/ -Isrc/libs \
+	-Wno-unused-result -Wno-parentheses -Wno-switch 
 RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
 TESTFLAGS := -o bin/out.asm examples/spec.evs
