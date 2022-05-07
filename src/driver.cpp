@@ -91,3 +91,9 @@ int driver::parse(const std::string & f) {
 	scan_end();
 	return result;
 }
+
+void driver::merge(driver& source) {
+	typedefs.insert(source.typedefs.begin(), source.typedefs.end());
+	environments.insert(source.environments.begin(), source.environments.end());
+	scripts.insert(source.scripts.begin(), source.scripts.end());
+}

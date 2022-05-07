@@ -105,3 +105,5 @@ my_label:
 	// Since the standard environment defines a terminator, there is no need
 	// to write `return()` at the end of the script.
 }
+
+include "simple.evs";

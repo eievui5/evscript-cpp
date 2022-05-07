@@ -4,8 +4,10 @@
 
 %code requires {
 	#include <string>
+	#include <filesystem>
 	#include "types.hpp"
 	struct driver;
+	extern FILE * yyin;
 }
 
 %code {
@@ -38,7 +40,7 @@
 	DEF "def" MAC "mac" USE "use"
 	TERM "terminator" SECT "section" POOL "pool"
 	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big"
-	DROP "drop"
+	DROP "drop" INCLUDE "include"
 ;
 %token <std::string> IDENTIFIER "identifier"
 %token <int> NUMBER "number"
@@ -57,10 +59,20 @@
 file: blocks block {};
 blocks: %empty {} | blocks block {};
 block:
-  typedef {}
+  include {}
+| typedef {}
 | environment {}
 | assembly {}
 | script {};
+
+include: "include" "string" ";" {
+	FILE * cur_file = yyin;
+	driver new_driver;
+	new_driver.merge(drv);
+	new_driver.parse((std::filesystem::path(drv.file).parent_path() / $2).string());
+	drv.merge(new_driver);
+	yyin = cur_file;
+};
 
 typedef:
   "typedef" "identifier" "=" "number" ";" {

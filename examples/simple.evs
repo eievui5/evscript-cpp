@@ -1,4 +1,4 @@
-env script {
+env example {
 	def return();
 	def debug(word);
 
@@ -7,6 +7,6 @@ env script {
 	pool = 32;
 }
 
-script Debug {
+example Debug {
 	debug("Hello, world!");
 }

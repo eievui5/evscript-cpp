@@ -107,7 +107,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto print_label = [&](size_t size, std::string label) {
-		switch (size)
+		switch (size) {
+
+		}
 	};
 
 	auto print_argument = [&](const arg& argument) {
@@ -343,7 +345,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		if (!is_const) varlist.auto_free(rhs);
 	};
 
-	fmt::print(out, "SECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
+	fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
 	for (const auto& stmt : statements) {
 		if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
 	}

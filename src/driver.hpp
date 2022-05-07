@@ -11,7 +11,7 @@ YY_DECL;
 
 struct driver {
 	std::string file;
-	bool trace_parsing = false;
+	bool trace_parsing = true;
 	bool trace_scanning = false;
 
 	std::unordered_map<std::string, type_definition> typedefs;
@@ -26,6 +26,7 @@ struct driver {
 	void load_standard_environment(environment& env);
 	int parse(const std::string & f);
 	void scan_begin();
+	void scan_pause();
 	void scan_end();
 
 	unsigned get_type(std::string name) {
@@ -66,4 +67,6 @@ struct driver {
 		typedefs["farptr"].size = 3;
 		typedefs["supptr"].size = 4;
 	}
+
+	void merge(driver&);
 };
