@@ -5,7 +5,7 @@
 
 struct variable {
 	unsigned size = 0;
-	bool internal;
+	bool internal = false;
 	std::string name;
 };
 
@@ -28,12 +28,25 @@ public:
 	found:
 		variables[i].size = size;
 		variables[i].internal = internal;
-		variables[i].name = name;
+		if (internal) variables[i].name = fmt::format("__evstemp{}", i);
+		else variables[i].name = name;
 		return i;
 	}
 
+
+
 	void free(const std::string& name) {
 		for (auto& var : variables) if (var.name == name) {
+			var.size = 0;
+			return;
+		}
+		err::fatal("No variable named \"{}\"", name);
+	}
+
+	// Free a variable only if it is marked as internal.
+	void auto_free(const std::string& name) {
+		for (auto& var : variables) if (var.name == name) {
+			if (!var.internal) return;
 			var.size = 0;
 			return;
 		}
@@ -54,6 +67,13 @@ public:
 		return nullptr;
 	}
 
+	variable& required_get(const std::string& name) {
+		for (auto& i : variables) {
+			if (i.name == name) return i;
+		}
+		err::fatal("Variable {} not found", name);
+	}
+
 	variable& get(int id) {
 		return variables[id];
 	}
@@ -69,6 +89,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	string_table s_table;
 	label_table l_table;
 
+	// This needs to be removed as it cannot support u24s
 	auto print_d = [&](size_t size) {
 		switch (size) {
 		case 1: fmt::print(out, "\tdb "); break;
@@ -83,6 +104,10 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	auto print_value = [&](size_t size, unsigned value) {
 		print_d(size);
 		fmt::print(out, "{}\n", value);
+	};
+
+	auto print_label = [&](size_t size, std::string label) {
+		switch (size)
 	};
 
 	auto print_argument = [&](const arg& argument) {
@@ -113,7 +138,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		if (argument.type == argtype::VAR) {
 			int var_index = varlist.lookup(argument.str);
 			if (var_index != -1) {
-				fmt::print(out, "\tdb {}", var_index);
+				fmt::print(out, "\tdb {} ; {}", var_index, argument.str);
 				return;
 			}
 		}
@@ -193,28 +218,34 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_definition(name, *def, args);
 	};
 
+	auto auto_cast = [&](variable& dest, variable& source) {
+		std::string cast = dest.name;
+		if (dest.size != source.size) {
+			cast = varlist.get(varlist.alloc(dest.size, true, "")).name;
+			print_standard(
+				fmt::format("cast_{}to{}", source.size * 8, dest.size * 8),
+				{{argtype::VAR, cast}, {argtype::VAR, source.name}}
+			);
+		}
+		return cast;
+	};
+
 	auto compile_ASSIGN = [&](const statement& stmt) {
 		const char * command_table[] = {
-			"copy_const", "copy_word_const", "copy_short_const", "copy_long_const"
+			"copy_const", "copy16_const", "copy24_const", "copy32_const"
 		};
 		std::vector<arg> args = {
-			{argtype::VAR, stmt.identifier}, {argtype::NUM, .value=stmt.value}
+			{argtype::VAR, stmt.identifier}, {argtype::NUM, .value = stmt.value}
 		};
 		variable * var = varlist.get(stmt.identifier);
 
 		if (!var) err::fatal("{} is not defined", stmt.identifier);
-		if (var->size >= 1 && var->size <= 4) {
-			print_standard(command_table[var->size], args);
-		} else {
-			err::fatal("Variables of size {} are not supported", var->size);
-		}
+		print_standard(command_table[var->size - 1], args);
 	};
 
 	auto compile_DECLARE = [&](const statement& stmt) {
-		fmt::print(out,
-			"\t; Allocated {} at {}\n",
-			stmt.identifier, varlist.alloc(stmt.size, false, stmt.identifier)
-		);
+		size_t index = varlist.alloc(stmt.size, false, stmt.identifier);
+		fmt::print(out, "\t; Allocated {} at {}\n", stmt.identifier, index);
 	};
 
 	auto compile_DECLARE_ASSIGN = [&](const statement& stmt) {
@@ -231,32 +262,28 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		// Is the destination declared as a variable?
 		if (iden_index != -1 && oper_index != -1) {
 			const char * table[] = {
-				"copy", "copy_word", "copy_short", "copy_long"
+				"copy", "copy16", "copy24", "copy32"
 			};
 			op_size = varlist.get(iden_index).size;
 			command_table = table;
 		} else if (iden_index != -1) {
 			const char * table[] = {
-				"load_const", "load_word_const",
-				"load_short_const", "load_long_const"
+				"load_const", "load16_const",
+				"load24_const", "load32_const"
 			};
 			op_size = varlist.get(iden_index).size;
 			command_table = table;
 		} else if (varlist.lookup(stmt.operand) != -1) {
 			const char * table[] = {
-				"store_const", "store_word_const",
-				"store_short_const", "store_long_const"
+				"store_const", "store16_const",
+				"store24_const", "store32_const"
 			};
 			op_size = varlist.get(oper_index).size;
 			command_table = table;
 		} else {
 			err::fatal("Cannot copy between two global vars, as no size is known");
 		}
-		if (op_size >= 1 && op_size <= 4) {
-			print_standard(command_table[op_size], args);
-		} else {
-			err::fatal("Variables of size {} are not supported", op_size);
-		}
+		print_standard(command_table[op_size - 1], args);
 	};
 
 	auto compile_DECLARE_COPY = [&](const statement& stmt) {
@@ -271,12 +298,49 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_DROP = [&](const statement& stmt) {
-		fmt::print(out, "\t; Dropped {}", stmt.identifier);
 		varlist.free(stmt.identifier);
+		fmt::print(out, "\t; Dropped {}", stmt.identifier);
 	};
 
 	auto compile_LABEL = [&](const statement& stmt) {
 		fmt::print(out, ".{}\n", stmt.identifier);
+	};
+
+	auto compile_OPERATION = [&](const statement& stmt) {
+		std::vector<arg> args;
+
+		variable& dest = varlist.required_get(stmt.identifier);
+		// TODO: This should use a seperate value to allow for a = x + y expressions.
+		// Until then, this line is a no-op.
+		std::string lhs = auto_cast(dest, varlist.required_get(stmt.identifier));
+		bool is_const = stmt.type < ADD;
+		std::string rhs;
+
+		if (is_const) {
+			args = {
+				{argtype::VAR, lhs},
+				{argtype::NUM, .value = stmt.value},
+				{argtype::VAR, stmt.identifier}
+			};
+		} else {
+			rhs = auto_cast(dest, varlist.required_get(stmt.operand));
+			args = {
+				{argtype::VAR, lhs},
+				{argtype::VAR, rhs},
+				{argtype::VAR, stmt.identifier}
+			};
+		}
+
+		const char * command_base[] = {"add", "sub", "mul", "div", "equ", "not", "and", "or"};
+		const char * command_type[] = {"", "16", "24", "32"};
+		std::string command = command_base[is_const ? stmt.type - CONST_ADD : stmt.type - ADD];
+		command += command_type[dest.size - 1];
+		if (is_const) command += "_const";
+
+		print_standard(command, args);
+
+		varlist.auto_free(lhs);
+		if (!is_const) varlist.auto_free(rhs);
 	};
 
 	fmt::print(out, "SECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
@@ -285,8 +349,11 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	}
 	for (const auto& stmt : statements) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
-		// ASSIGN, CONST_ADD, CONST_SUB, CONST_MULT, CONST_DIV, COPY, ADD, SUB, MULT, DIV
 		switch (stmt.type) {
+			case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
+			case ADD: case SUB: case MULT: case DIV:
+				compile_OPERATION(stmt);
+				break;
 			COMPILE(ASSIGN);
 			COMPILE(CALL);
 			COMPILE(COPY);

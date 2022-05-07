@@ -27,7 +27,7 @@ static inline void error(fmt::string_view message, const Args& ... args) {
 }
 
 template <typename ...Args>
-static inline void fatal(fmt::string_view message, const Args& ... args) {
+[[noreturn]] static inline void fatal(fmt::string_view message, const Args& ... args) {
 	if (color) fmt::print(stderr, "\033[1m\033[31mfatal: \033[0m");
 	else fmt::print(stderr, "fatal: ");
 	fmt::vprint(stderr, message, fmt::make_format_args(args...));

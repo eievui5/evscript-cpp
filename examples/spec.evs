@@ -1,17 +1,18 @@
 // The following types are provided by evscript:
-// byte: 1 byte
-// word: 2 bytes
-// ptr: 2 bytes
-// short: 3 bytes
-// farptr: 3 bytes
-// long: 4 bytes
+// u8    
+// u16  
+// u24 
+// u32  
+// bank (stores the bank of a label)
+// ptr (stores a label; identical to u16)
+// farptr (stores bank after pointer)
+// supptr (for 16-bit banks)
 
 // Additional types may be defined using the `typedef` keyword, if another size
 // or alias is required.
 // `typedef_big` can be used to specify that the value should be stored as
-// big-endian
-typedef_big position = short;
-// Typedefs could be moved into environments?
+// big-endian. This only works for constants
+typedef_big position = u24;
 
 // An environment is used to define a set of commands.
 // The "std" or standard environment is automatically provided, and contains all
@@ -27,14 +28,14 @@ env script {
 	// Commands are defined using the `def` keyword followed by an identifier
 	// and a set of parenthesis. The parenthesis contain argument types.
 	// If the argument is a constant value, the `const` keyword should be used.
-	def move_actor(word, const byte, const byte);
+	def move_actor(u16, const u8, const u8);
 	// The `mac` keyword can be used to define an alias for another command,
 	// optionally defining default arguments. `\n` stands for the nth argument,
 	// which should be passed into the target command.
-	mac move_player(const byte, const byte) = move_actor(wPlayer, $1, $2);
+	mac move_player(const u8, const u8) = move_actor(wPlayer, $1, $2);
 	// Additionally, `mac` can be used to alias an RGBASM macro, if the value on
 	// the right is not a command. This allows you to use varargs. 
-	mac print(const word, ...) = print_string;
+	mac print(const u16, ...) = print_string;
 
 	// If a string is passed to a `const` argument, evscript will define the
 	// string at the end of the script, and replace the argument with a pointer
@@ -47,7 +48,8 @@ env script {
 }
 
 asm {
-//	MACRO print ; string, x, y, [length]
+//	MACRO print_string ; string, x, y, [length]
+//		ASSERT _NARG >= 3, "Expected at least 3 arguments"
 //		db PRINT_BYTE
 //		dw \1
 //		db \2, \3
@@ -71,10 +73,13 @@ script HelloWorld {
 	// evscript will assume it is a global variable.
 	// For a global to be used in an operation, it must first be pulled into
 	// a local variable.
-	byte value = wTimesExecuted;
+	u8 value = wGlobalVar;
 	value += 1;
-	wTimesExecuted = value;
-	byte another = 2;
+	value -= 2;
+	value *= 3;
+	value /= 4;
+	wGlobalVar = value;
+	u8 another = 2;
 	value = another;
 
 	// Commands can be easily called as if they are functions.	

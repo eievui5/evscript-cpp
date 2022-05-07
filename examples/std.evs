@@ -1,6 +1,6 @@
 // Standard evscript environment. This implements bytecode for all language
 // features
-env std byte {
+env std {
 	// Returns from a script and clears the script address to prevent reentry.
 	def return();
 	// Like a return, but leaves the script address intact to allow reentry.
@@ -8,63 +8,63 @@ env std byte {
 	// jump to an address.
 	def goto(const ptr);
 	// jump only if the previous conditional evaluated true.
-	def goto_conditional(const ptr, byte);
+	def goto_conditional(const ptr, u8);
 	// jump to another bank.
 	def goto_far(const farptr);
 	// jump to another bank only if the previous conditional evaluated true.
-	def goto_conditional_far(const farptr, byte);
+	def goto_conditional_far(const farptr, u8);
 
 	// Variable operations.
-	def add(byte, byte, byte);
-	def sub(byte, byte, byte);
-	def mul(byte, byte, byte);
-	def div(byte, byte, byte);
-	def add_const(byte, const byte, byte);
-	def sub_const(byte, const byte, byte);
-	def mul_const(byte, const byte, byte);
-	def div_const(byte, const byte, byte);
+	def add(u8, u8, u8);
+	def sub(u8, u8, u8);
+	def mul(u8, u8, u8);
+	def div(u8, u8, u8);
+	def add_const(u8, const u8, u8);
+	def sub_const(u8, const u8, u8);
+	def mul_const(u8, const u8, u8);
+	def div_const(u8, const u8, u8);
 	// Conditionals
-	def equ(byte, byte, byte);
-	def not(byte, byte, byte);
-	def and(byte, byte, byte);
-	def or (byte, byte, byte);
-	def equ_const(byte, const byte, byte);
-	def not_const(byte, const byte, byte);
+	def equ(u8, u8, u8);
+	def not(u8, u8, u8);
+	def and(u8, u8, u8);
+	def or (u8, u8, u8);
+	def equ_const(u8, const u8, u8);
+	def not_const(u8, const u8, u8);
 
-	// Word operations are 4 bytes each, as word variables are indexed using a
+	// u16 operations are 4 bytes each, as u16 variables are indexed using a
 	// byte; the pool is limited to 256 entries.
-	def add_word(word, word, word);
-	def sub_word(word, word, word);
-	def mul_word(word, word, word);
-	def div_word(word, word, word);
+	def add16(u16, u16, u16);
+	def sub16(u16, u16, u16);
+	def mul16(u16, u16, u16);
+	def div16(u16, u16, u16);
 	// Constant operations; since the rhs is constant, these are 5 bytes.
-	def add_word_const(word, const word, word);
-	def sub_word_const(word, const word, word);
-	def mul_word_const(word, const word, word);
-	def div_word_const(word, const word, word);
+	def add16_const(u16, const u16, u16);
+	def sub16_const(u16, const u16, u16);
+	def mul16_const(u16, const u16, u16);
+	def div16_const(u16, const u16, u16);
 	// Conditionals
-	def equ_word(word, word, word);
-	def not_word(word, word, word);
-	def and_word(word, word, word);
-	def or_word(word, word, word);
-	def equ_word_const(word, const word, word);
-	def not_word_const(word, const word, word);
+	def equ16(u16, u16, u16);
+	def not16(u16, u16, u16);
+	def and16(u16, u16, u16);
+	def or16(u16, u16, u16);
+	def equ16_const(u16, const u16, u16);
+	def not16_const(u16, const u16, u16);
 
 	// Copies and loads
-	def copy(byte, byte); // copy one variable to another.
-	def load(byte, ptr); // load a byte from an address.
-	def store(ptr, byte); // store a byte to an address.
-	def copy_const(byte, const byte); // copy a constant to a variable.
-	def load_const(byte, const ptr); // load a byte from a constant address.
-	def store_const(const ptr, byte); // store a byte to a constant address.
-	def copy_word(byte, byte); // copy one variable to another.
-	def load_word(byte, ptr); // load a byte from an address.
-	def store_word(ptr, byte); // store a byte to an address.
-	def copy_word_const(byte, const byte); // copy a constant to a variable.
-	def load_word_const(byte, const ptr); // load a byte from a constant address.
-	def store_word_const(const ptr, byte); // store a byte to a constant address.
-	def cast_8to16(word, byte);
-	def cast_16to8(byte, word);
+	def copy(u8, u8); // copy one variable to another.
+	def load(u8, ptr); // load a u8 from an address.
+	def store(ptr, u8); // store a u8 to an address.
+	def copy_const(u8, const u8); // copy a constant to a variable.
+	def load_const(u8, const ptr); // load a u8 from a constant address.
+	def store_const(const ptr, u8); // store a u8 to a constant address.
+	def copy16(u16, u16); // copy one variable to another.
+	def load16(u16, ptr); // load a u16 from an address.
+	def store16(ptr, u16); // store a u16 to an address.
+	def copy16_const(u16, const u16); // copy a constant to a variable.
+	def load16_const(u16, const ptr); // load a u16 from a constant address.
+	def store16_const(const ptr, u16); // store a u16 to a constant address.
+	def cast_8to16(u16, u8);
+	def cast_16to8(u8, u16);
 
 	// Misc commands offered by the standard environment.
 	def callasm(const ptr); // call an assembly function and return.

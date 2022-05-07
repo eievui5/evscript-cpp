@@ -63,11 +63,19 @@ block:
 | script {};
 
 typedef:
-  "typedef" "identifier" "=" "number" ";" { drv.typedefs[$2].size = $4; }
+  "typedef" "identifier" "=" "number" ";" {
+	if ($4 < 1 || $4 > 4) {
+		err::fatal("Invalid size {} for type {}. Types must be from 1 to 4 bytes large", $2, $4);
+	}
+  drv.typedefs[$2].size = $4;
+  }
 | "typedef" "identifier" "=" "identifier" ";" {
   	drv.typedefs[$2].size = drv.get_type($4);
   }
 | "typedef_big" "identifier" "=" "number" ";" {
+	if ($4 < 1 || $4 > 4) {
+		err::fatal("Invalid size {} for type {}. Types must be from 1 to 4 bytes large", $2, $4);
+	}
 	drv.typedefs[$2].size = $4;
 	drv.typedefs[$2].big_endian = true;
 }

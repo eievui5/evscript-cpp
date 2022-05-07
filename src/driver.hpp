@@ -57,11 +57,13 @@ struct driver {
 	driver() {
 		load_standard_environment(environments["std"]);
 
-		typedefs["byte"].size = 1;
-		typedefs["word"].size = 2;
+		typedefs["u8"].size = 1;
+		typedefs["u16"].size = 2;
+		typedefs["u24"].size = 3;
+		typedefs["u32"].size = 4;
+		typedefs["bank"].size = 1;
 		typedefs["ptr"].size = 2;
-		typedefs["short"].size = 3;
 		typedefs["farptr"].size = 3;
-		typedefs["long"].size = 4;
+		typedefs["supptr"].size = 4;
 	}
 };
