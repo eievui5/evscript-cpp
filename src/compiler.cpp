@@ -344,8 +344,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		varlist.auto_free(lhs);
 		if (!is_const) varlist.auto_free(rhs);
 	};
-
-	fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
+	if (env.section != "" && env.section != "none") {
+		fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
+	}
 	for (const auto& stmt : statements) {
 		if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
 	}

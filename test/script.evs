@@ -1,4 +1,5 @@
 env script {
+	use std;
 	def print(const ptr);
 }
 

@@ -60,8 +60,11 @@ Font:
 	INCBIN "bin/font.2bpp"
 .end
 
+DEF swap_bank EQUS "ld [$2000], a"
+INCLUDE "../src/runtime/evsbytecode.asm"
 INCLUDE "../src/runtime/driver.asm"
 	; After including the driver, define the jump table.
+	std_bytecode
 	dw PrintFunction
 
 INCLUDE "bin/script.asm"
