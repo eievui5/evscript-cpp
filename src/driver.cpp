@@ -1,6 +1,6 @@
 #include "driver.hpp"
 
-void driver::load_standard_environment(environment& env) {
+void driver::load_std(environment& env) {
 	unsigned i = 0;
 	const struct {const char * name; definition def;} stddefs[] = {
 		// The purpose of each argument is provided in a comment before the
@@ -38,6 +38,21 @@ void driver::load_standard_environment(environment& env) {
 		{ "copy_const",           {DEF, i++, {{ARG, 1}, {CON, 1}}}},
 		{ "load_const",           {DEF, i++, {{ARG, 1}, {CON, 2}}}},
 		{ "store_const",          {DEF, i++, {{CON, 2}, {ARG, 1}}}},
+	};
+
+	for (size_t i = 0; i < sizeof(stddefs) / sizeof(*stddefs); i++) {
+		env.defines[stddefs[i].name] = stddefs[i].def;
+		env.bytecode_count++;
+	}
+
+	env.section = "ROMX";
+	env.terminator = 0;
+	env.pool = 0;
+}
+
+void driver::load_std16(environment& env) {
+	unsigned i = 0;
+	const struct {const char * name; definition def;} stddefs[] = {
 		// lhs, rhs, dest
 		{ "add16",                {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
 		{ "sub16",                {DEF, i++, {{ARG, 2}, {ARG, 2}, {ARG, 2}}}},
@@ -60,19 +75,12 @@ void driver::load_standard_environment(environment& env) {
 		{ "copy16_const",         {DEF, i++, {{ARG, 2}, {CON, 2}}}},
 		{ "load16_const",         {DEF, i++, {{ARG, 2}, {CON, 2}}}},
 		{ "store16_const",        {DEF, i++, {{CON, 2}, {ARG, 2}}}},
-		// dest, source
-		{ "cast_8to16",           {DEF, i++, {{ARG, 2}, {ARG, 1}}}},
-		{ "cast_16to8",           {DEF, i++, {{ARG, 1}, {ARG, 2}}}},
 	};
 
 	for (size_t i = 0; i < sizeof(stddefs) / sizeof(*stddefs); i++) {
 		env.defines[stddefs[i].name] = stddefs[i].def;
 		env.bytecode_count++;
 	}
-
-	env.section = "ROMX";
-	env.terminator = 0;
-	env.pool = 0;
 }
 
 int driver::parse(const std::string & f) {

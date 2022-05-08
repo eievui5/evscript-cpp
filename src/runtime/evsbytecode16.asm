@@ -16,15 +16,15 @@ MACRO std_bytecode16
 	dw StdEquConst16
 	dw StdNotConst16
 	; Copy 16
-	dw 0
-	dw 0
-	dw 0
-	dw 0
-	dw 0
-	dw 0
+	dw StdCopy16
+	dw StdLoad16
+	dw StdStore16
+	dw StdCopyConst16
+	dw StdLoadConst16
+	dw StdStoreConst16
 	; 16-bit casts
-	dw 0
-	dw 0
+	dw StdCast8to16
+	dw StdCast16to8
 ENDM
 
 SECTION "EVScript 16-bit operation", ROM0
@@ -348,3 +348,143 @@ StdNotConst16:
 	ld bc, 1
 	pop hl
 	jp StoreEpilogue16
+
+SECTION "EVScript Copy16", ROM0
+StdCopy16:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
+	inc de
+	inc bc
+	ld a, [de]
+	ld [bc], a
+	ret
+
+SECTION "EVScript Load16", ROM0
+StdLoad16:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	push hl
+	add a, e
+	ld l, a
+	adc a, d
+	sub a, l
+	ld h, a
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	ld a, [hli]
+	ld [bc], a
+	inc bc
+	ld a, [hl]
+	ld [bc], a
+	pop hl
+	ret
+
+SECTION "EVScript Store16", ROM0
+StdStore16:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [bc]
+	inc bc
+	ld d, a
+	ld a, [bc]
+	ld b, a
+	ld c, d
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
+	inc de
+	inc bc
+	ld a, [de]
+	ld [bc], a
+	ret
+
+SECTION "EVScript CopyConst16", ROM0
+StdCopyConst16:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	ld [bc], a
+	inc bc
+	ld a, [hli]
+	ld [bc], a
+	ret
+
+SECTION "EVScript LoadConst16", ROM0
+StdLoadConst16:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	push hl
+	ld h, [hl]
+	ld l, a
+	ld a, [hli]
+	ld [bc], a
+	inc bc
+	ld a, [hl]
+	ld [bc], a
+	pop hl
+	inc hl
+	ret
+
+SECTION "EVScript StoreConst16", ROM0
+StdStoreConst16:
+	ld a, [hli]
+	ld c, a
+	ld a, [hli]
+	ld b, a
+	ld a, [bc]
+	inc bc
+	push de
+	ld e, a
+	ld a, [bc]
+	ld b, a
+	ld c, e
+	pop de
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
+	inc de
+	inc bc
+	ld a, [de]
+	ld [bc], a
+	ret

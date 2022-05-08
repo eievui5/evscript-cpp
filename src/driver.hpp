@@ -23,7 +23,8 @@ struct driver {
 	environment current_environment;
 	script current_script;
 
-	void load_standard_environment(environment& env);
+	void load_std(environment& env);
+	void load_std16(environment& env);
 	int parse(const std::string & f);
 	void scan_begin();
 	void scan_pause();
@@ -34,11 +35,6 @@ struct driver {
 	}
 
 	void import(std::string env) {
-		if (env == "std") {
-			load_standard_environment(current_environment);
-			return;
-		}
-
 		if (!environments.contains(env)) {
 			err::warn("Environment {} does not exist", env);
 			return;
@@ -56,7 +52,8 @@ struct driver {
 	}
 
 	driver() {
-		load_standard_environment(environments["std"]);
+		load_std(environments["std"]);
+		load_std16(environments["std16"]);
 
 		typedefs["u8"].size = 1;
 		typedefs["u16"].size = 2;

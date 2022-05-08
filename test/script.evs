@@ -1,7 +1,5 @@
 env script {
-	use std;
 	def print(const ptr);
-	pool = 16;
 }
 
 script TestScript {

@@ -29,12 +29,12 @@ MACRO std_bytecode
 	dw StdEquConst
 	dw StdNotConst
 	; Copy
-	dw 0
-	dw 0
-	dw 0
-	dw 0
-	dw 0
-	dw 0
+	dw StdCopy
+	dw StdLoad
+	dw StdStore
+	dw StdCopyConst
+	dw StdLoadConst
+	dw StdStoreConst
 ENDM
 
 SECTION "EVScript Return", ROM0
@@ -320,3 +320,125 @@ StdLogicalOrConst:
 .true
 	ld a, 1
 	jr StoreEpilogue
+
+SECTION "EVScript Copy", ROM0
+StdCopy:
+	push de
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
+	pop de
+	ret
+
+SECTION "EVScript Load", ROM0
+StdLoad:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	push hl
+	add a, e
+	ld l, a
+	adc a, d
+	sub a, l
+	ld h, a
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	ld a, [hl]
+	ld [bc], a
+	pop hl
+	ret
+
+SECTION "EVScript Store", ROM0
+StdStore:
+	push de
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [bc]
+	inc bc
+	ld d, a
+	ld a, [bc]
+	ld b, a
+	ld c, d
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
+	pop de
+	ret
+
+SECTION "EVScript CopyConst", ROM0
+StdCopyConst:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	ld [bc], a
+	ret
+
+SECTION "EVScript LoadConst", ROM0
+StdLoadConst:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [hli]
+	push hl
+	ld h, [hl]
+	ld l, a
+	ld a, [hl]
+	ld [bc], a
+	pop hl
+	inc hl
+	ret
+
+SECTION "EVScript StoreConst", ROM0
+StdStoreConst:
+	ld a, [hli]
+	ld c, a
+	ld a, [hli]
+	ld b, a
+	ld a, [bc]
+	inc bc
+	push de
+	ld e, a
+	ld a, [bc]
+	ld b, a
+	ld c, e
+	pop de
+	ld a, [hli]
+	add a, e
+	ld e, a
+	adc a, d
+	sub a, e
+	ld d, a
+	ld a, [de]
+	ld [bc], a
