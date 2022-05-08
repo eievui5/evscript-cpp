@@ -1,5 +1,5 @@
 env example {
-	def return();
+	def ret();
 	def debug(const str);
 
 	section = "ROMX";

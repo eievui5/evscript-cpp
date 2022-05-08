@@ -308,6 +308,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		fmt::print(out, ".{}\n", stmt.identifier);
 	};
 
+	auto compile_GOTO = [&](const statement& stmt) {
+		fmt::print(out, "IF BANK({}) == BANK(@)\n", stmt.identifier);
+		print_standard("goto", {{argtype::VAR, stmt.identifier}});
+		fmt::print(out, "ELSE\n");
+		print_standard("goto_far", {{argtype::VAR, stmt.identifier}});
+		fmt::print(out, "ENDC\n");
+	};
+
 	auto compile_OPERATION = [&](const statement& stmt) {
 		std::vector<arg> args;
 

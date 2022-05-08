@@ -86,9 +86,7 @@ script HelloWorld {
 	move_player(1, 1);
 	move_actor(wEnemy, 3, 1);
 
-	// Even commands in the standard enviroment can be used if desired, such as
-	// `goto()`
-	goto(my_label);
+	goto my_label;
 	// A label can be defined using an identifier followed by a colon.
 my_label:
 	// This jump is obviously a no-op. While this compiler may introduce
@@ -98,12 +96,12 @@ my_label:
 	// The standard environment defines `yield()`, which is nearly identical to
 	// `return()`. It's intended for scripts which should pick up later, for
 	// example an entity's logic which must wait for the next tick.
-	yield();
+	yield;
 
 	print("Hello, world!");
 
 	// Since the standard environment defines a terminator, there is no need
-	// to write `return()` at the end of the script.
+	// to write `return` at the end of the script.
 }
 
 include "simple.evs";

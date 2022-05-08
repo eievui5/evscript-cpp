@@ -242,12 +242,11 @@ statement:
 }
 | "break" ";" { $$.type = statement_type::BREAK; }
 | "continue" ";" { $$.type = statement_type::CONTINUE; }
-| "return" ";" { $$.type = statement_type::RETURN; }
-| "yield" ";" { $$.type = statement_type::YIELD; }
+| "return" ";" { $$.type = statement_type::CALL; $$.identifier = "return"; }
+| "yield" ";" { $$.type = statement_type::CALL; $$.identifier = "yield"; }
 // These should insert code to automatically choose "far" versions.
-| "goto" "string" ";" { $$.type = statement_type::GOTO; $$.identifier = $2; }
-| "call" "string" ";" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
-| ";" { $$.type = statement_type::NOOP; }
+| "goto" "identifier" ";" { $$.type = statement_type::GOTO; $$.identifier = $2; }
+| "call" "identifier" ";" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
 ;
 
 parameters:
