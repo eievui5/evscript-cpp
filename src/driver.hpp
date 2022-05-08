@@ -11,7 +11,7 @@ YY_DECL;
 
 struct driver {
 	std::string file;
-	bool trace_parsing = true;
+	bool trace_parsing = false;
 	bool trace_scanning = false;
 
 	std::unordered_map<std::string, type_definition> typedefs;
