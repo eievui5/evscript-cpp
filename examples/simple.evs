@@ -1,6 +1,6 @@
 env example {
 	def return();
-	def debug(word);
+	def debug(const str);
 
 	section = "ROMX";
 	terminator = 0;

@@ -8,12 +8,21 @@
 	#include "types.hpp"
 	struct driver;
 	extern FILE * yyin;
+	struct def_pair {
+		bool is_terminator = false;
+		bool is_section = false;
+		bool is_pool = false;
+		bool is_import = false;
+		unsigned value;
+		std::string name;
+		definition def;
+	};
 }
 
 %code {
 	#include "driver.hpp"
-	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.value = r; drv.current_script.statements.push_back(res);
-	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.operand = r; drv.current_script.statements.push_back(res);
+	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.value = r;;
+	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.operand = r;;
 }
 
 %define api.token.raw
@@ -53,6 +62,9 @@
 %type <std::vector<arg>> arguments
 %type <statement> statement
 %type <std::vector<statement>> statements
+%type <script> script
+%type <def_pair> declaration
+%type <std::vector<def_pair>> declarations
 
 %%
 
@@ -96,64 +108,73 @@ typedef:
 	drv.typedefs[$2].big_endian = true;
 };
 
-environment:
-  "env" "identifier" "{" declarations "}" {
-  	drv.environments[$2] = drv.current_environment;
-  	drv.current_environment.initialize();
-}
-| "env" "identifier" "identifier" "{" declarations "}" {
-	drv.environments[$2] = drv.current_environment;
-	drv.environments[$2].bytecode_size = drv.get_type($3);
-	drv.current_environment.initialize();
+environment: "env" "identifier" "{" declarations "}" {
+	environment& env = drv.environments[$2];
+	for (auto& i : $4) {
+		if (i.is_terminator) {
+			env.terminator = i.value;
+		} else if (i.is_section) {
+			env.section = i.name;
+		} else if (i.is_pool) {
+			env.pool = i.value;
+		} else if (i.is_import) {
+			drv.import(i.name, env);
+		} else {
+			i.def.bytecode = env.bytecode_count++;
+			env.defines[i.name] = i.def;
+		}
+	}
 };
-declarations: %empty {} | declarations declaration {};
+declarations: %empty {} | declarations declaration {
+	$1.push_back($2); $$ = $1;
+};
 declaration:
-  "use" "identifier" ";" { drv.import($2); }
-| "def" "identifier" "(" parameters ")" ";" {
-	auto& this_def = drv.current_environment.defines[$2];
-	this_def.type = deftype::DEF;
-	this_def.bytecode = drv.current_environment.bytecode_count++;
-	this_def.parameters = $4;
+  "def" "identifier" "(" parameters ")" ";" {
+	$$.name = $2;
+	$$.def.type = deftype::DEF;
+	$$.def.parameters = $4;
 }
 | "mac" "identifier" "(" parameters ")" "=" "identifier" ";" {
-	auto& this_def = drv.current_environment.defines[$2];
-	this_def.type = deftype::ALIAS;
-	this_def.alias = $7;
-	this_def.parameters = $4;
+	$$.name = $2;
+	$$.def.type = deftype::ALIAS;
+	$$.def.alias = $7;
+	$$.def.parameters = $4;
 }
 | "mac" "identifier" "(" parameters ")" "=" "identifier" "(" arguments ")" ";" {
-	auto& this_def = drv.current_environment.defines[$2];
-	this_def.type = deftype::MAC;
-	this_def.parameters = $4;
-	this_def.alias = $7;
-	this_def.arguments = $9;
+	$$.name = $2;
+	$$.def.type = deftype::MAC;
+	$$.def.parameters = $4;
+	$$.def.alias = $7;
+	$$.def.arguments = $9;
 }
-| "terminator" "=" "number" ";" { drv.current_environment.terminator = $3; }
-| "section" "=" "string" ";" { drv.current_environment.section = $3; }
-| "pool" "=" "number" ";" { drv.current_environment.pool = $3; };
+| "use" "identifier" ";" { $$.is_import = true; $$.name = $2; }
+| "terminator" "=" "number" ";" { $$.is_terminator = true; $$.value = $3; }
+| "section" "=" "string" ";" { $$.is_section = true; $$.name = $3; }
+| "pool" "=" "number" ";" { $$.is_pool = true; $$.value = $3; };
 
 script:
   "identifier" "identifier" "{" statements "}" {
-  	drv.scripts[$2] = drv.current_script;
+  	drv.scripts[$2].statements = $4;
   	drv.scripts[$2].env = $1;
 };
 
-statements: %empty {} | statements statement {};
+statements: %empty {} | statements statement {
+	$1.push_back($2); $$ = $1;
+};
 statement:
   "identifier" "(" arguments ")" ";" {
 	$$.type = statement_type::CALL;
 	$$.identifier = $1;
 	$$.args = $3;
-	drv.current_script.statements.push_back($$);
 }
 // constant operations
-| "identifier" "=" "number" ";" {  CONSTOP($$, $1, $3, ASSIGN); }
+| "identifier" "=" "number" ";"  { CONSTOP($$, $1, $3, ASSIGN); }
 | "identifier" "+=" "number" ";" { CONSTOP($$, $1, $3, CONST_ADD); }
 | "identifier" "-=" "number" ";" { CONSTOP($$, $1, $3, CONST_SUB); }
 | "identifier" "*=" "number" ";" { CONSTOP($$, $1, $3, CONST_MULT); }
 | "identifier" "/=" "number" ";" { CONSTOP($$, $1, $3, CONST_DIV); }
 // variable operations
-| "identifier" "=" "identifier" ";" {  VAROP($$, $1, $3, COPY); } // may load a global
+| "identifier" "=" "identifier" ";"  { VAROP($$, $1, $3, COPY); } // may load a global
 | "identifier" "+=" "identifier" ";" { VAROP($$, $1, $3, ADD); }
 | "identifier" "-=" "identifier" ";" { VAROP($$, $1, $3, SUB); }
 | "identifier" "*=" "identifier" ";" { VAROP($$, $1, $3, MULT); }
@@ -162,7 +183,6 @@ statement:
 	$$.type = statement_type::DECLARE;
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
-	drv.current_script.statements.push_back($$);
 }
 // declare with constant value
 | "identifier" "identifier" "=" "number" ";" {
@@ -170,7 +190,6 @@ statement:
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
 	$$.value = $4;
-	drv.current_script.statements.push_back($$);
 }
 // declare with copy or global load
 | "identifier" "identifier" "=" "identifier" ";" {
@@ -178,18 +197,15 @@ statement:
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
 	$$.operand = $4;
-	drv.current_script.statements.push_back($$);
 }
 // label
 | "identifier" ":" {
 	$$.type = statement_type::LABEL;
 	$$.identifier = $1;
-	drv.current_script.statements.push_back($$);
 }
 | "drop" "identifier" ";" {
 	$$.type = statement_type::DROP;
 	$$.identifier = $2;
-	drv.current_script.statements.push_back($$);
 };
 
 parameters:

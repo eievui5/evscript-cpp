@@ -20,8 +20,6 @@ struct driver {
 
 	int result;
 	yy::location location;
-	environment current_environment;
-	script current_script;
 
 	void load_std(environment& env);
 	void load_std16(environment& env);
@@ -34,21 +32,22 @@ struct driver {
 		return typedefs[name].size;
 	}
 
-	void import(std::string env) {
-		if (!environments.contains(env)) {
-			err::warn("Environment {} does not exist", env);
+	void import(std::string import_name, environment& env) {
+		if (!environments.contains(import_name)) {
+			err::warn("Environment {} does not exist", import_name);
 			return;
 		}
 
-		for (auto& [name, def] : environments[env].defines) {
-			current_environment.defines[name] = def;
-			current_environment.bytecode_count++;
+		environment& import = environments[import_name];
+
+		for (auto& [name, def] : import.defines) {
+			env.defines[name] = def;
+			env.bytecode_count++;
 		}
 
-		current_environment.pool = environments[env].pool;
-		current_environment.section = environments[env].section;
-		current_environment.terminator = environments[env].terminator;
-		current_environment.bytecode_size = environments[env].bytecode_size;
+		env.pool = import.pool;
+		env.section = import.section;
+		env.terminator = import.terminator;
 	}
 
 	driver() {

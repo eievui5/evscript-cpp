@@ -37,17 +37,7 @@ struct environment {
 	std::string section = "ROMX";
 	unsigned terminator = 0;
 	unsigned pool = 0;
-	unsigned bytecode_size = 1;
 	unsigned bytecode_count = 0;
-
-	void initialize() {
-		defines.clear();
-		section = "ROMX";
-		terminator = 0;
-		pool = 0;
-		bytecode_size = 1;
-		bytecode_count = 0;
-	}
 
 	definition * get_define(std::string name) {
 		if (!defines.contains(name)) return nullptr;
