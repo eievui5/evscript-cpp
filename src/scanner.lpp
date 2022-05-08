@@ -75,6 +75,18 @@ blank [ \t\r]
 "typedef_big" return yy::parser::make_TYPEBIG(loc);
 "drop" return yy::parser::make_DROP(loc);
 "include" return yy::parser::make_INCLUDE(loc);
+"if" return yy::parser::make_IF(loc);
+"while" return yy::parser::make_WHILE(loc);
+"do" return yy::parser::make_DO(loc);
+"for" return yy::parser::make_FOR(loc);
+"repeat" return yy::parser::make_REPEAT(loc);
+"loop" return yy::parser::make_LOOP(loc);
+"break" return yy::parser::make_BREAK(loc);
+"continue" return yy::parser::make_CONTINUE(loc);
+"return" return yy::parser::make_RETURN(loc);
+"yield" return yy::parser::make_YIELD(loc);
+"goto" return yy::parser::make_GOTO(loc);
+"call" return yy::parser::make_CALLASM(loc);
 
 {int} return make_NUMBER(yytext, loc);
 {arg} return make_ARGID(yytext, loc);

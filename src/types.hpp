@@ -46,16 +46,24 @@ struct environment {
 };
 
 enum statement_type {
+	NOOP,
 	ASSIGN, CONST_ADD, CONST_SUB, CONST_MULT, CONST_DIV,
 	COPY, ADD, SUB, MULT, DIV,
-	DECLARE, DROP, DECLARE_ASSIGN, DECLARE_COPY, LABEL, CALL
+	DECLARE, DROP, DECLARE_ASSIGN, DECLARE_COPY, LABEL, CALL,
+	IF, WHILE, DO, FOR, REPEAT, LOOP, BREAK, CONTINUE, RETURN, YIELD, GOTO, CALLASM
 };
 
 struct statement {
 	statement_type type;
+
 	std::string identifier;
+
+	std::string lhs;
+	std::string rhs;
+
 	std::vector<arg> args;
-	std::string operand;
+	std::vector<statement> statements;
+	std::vector<statement> conditions;
 	unsigned value;
 	unsigned size;
 };

@@ -22,7 +22,7 @@
 %code {
 	#include "driver.hpp"
 	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.value = r;;
-	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.operand = r;;
+	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.lhs = r;;
 }
 
 %define api.token.raw
@@ -46,10 +46,10 @@
 ;
 %token
 	ENV "env" ASM "asm"
-	DEF "def" MAC "mac" USE "use"
-	TERM "terminator" SECT "section" POOL "pool"
-	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big"
-	DROP "drop" INCLUDE "include"
+	DEF "def" MAC "mac" USE "use" TERM "terminator" SECT "section" POOL "pool"
+	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big" DROP "drop" INCLUDE "include"
+	IF "if" WHILE "while" DO "do" FOR "for" REPEAT "repeat" LOOP "loop"
+	BREAK "break" CONTINUE "continue" RETURN "return" YIELD "yield" GOTO "goto" CALLASM "call"
 ;
 %token <std::string> IDENTIFIER "identifier"
 %token <int> NUMBER "number"
@@ -168,6 +168,7 @@ statement:
 	$$.args = $3;
 }
 // constant operations
+// TODO: Add z = x <> y operations.
 | "identifier" "=" "number" ";"  { CONSTOP($$, $1, $3, ASSIGN); }
 | "identifier" "+=" "number" ";" { CONSTOP($$, $1, $3, CONST_ADD); }
 | "identifier" "-=" "number" ";" { CONSTOP($$, $1, $3, CONST_SUB); }
@@ -196,7 +197,7 @@ statement:
 	$$.type = statement_type::DECLARE_COPY;
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
-	$$.operand = $4;
+	$$.lhs = $4;
 }
 // label
 | "identifier" ":" {
@@ -206,7 +207,48 @@ statement:
 | "drop" "identifier" ";" {
 	$$.type = statement_type::DROP;
 	$$.identifier = $2;
-};
+}
+// Control structures
+| "if" statement "{" statements "}" {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+}
+| "while" statement "{" statements "}" {
+	$$.type = statement_type::WHILE;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+}
+| "do" "{" statements "}" "while" statement ";" {
+	$$.type = statement_type::DO;
+	$$.conditions.push_back($6);
+	$$.statements = $3;
+}
+| "for" statement ";" statement ";" statement ";" "{" statements "}" {
+	$$.type = statement_type::FOR;
+	$$.conditions.push_back($2);
+	$$.conditions.push_back($4);
+	$$.conditions.push_back($6);
+	$$.statements = $9;
+}
+| "repeat" "number" "{" statements "}" {
+	$$.type = statement_type::REPEAT;
+	$$.value = $2;
+	$$.statements = $4;
+}
+| "loop" "{" statements "}" {
+	$$.type = statement_type::LOOP;
+	$$.statements = $3;
+}
+| "break" ";" { $$.type = statement_type::BREAK; }
+| "continue" ";" { $$.type = statement_type::CONTINUE; }
+| "return" ";" { $$.type = statement_type::RETURN; }
+| "yield" ";" { $$.type = statement_type::YIELD; }
+// These should insert code to automatically choose "far" versions.
+| "goto" "string" ";" { $$.type = statement_type::GOTO; $$.identifier = $2; }
+| "call" "string" ";" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
+| ";" { $$.type = statement_type::NOOP; }
+;
 
 parameters:
   %empty {}

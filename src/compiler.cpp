@@ -256,9 +256,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_COPY = [&](const statement& stmt) {
-		std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.operand}};
+		std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.lhs}};
 		int iden_index = varlist.lookup(stmt.identifier);
-		int oper_index = varlist.lookup(stmt.operand);
+		int oper_index = varlist.lookup(stmt.lhs);
 		unsigned op_size;
 		const char ** command_table;
 		// Is the destination declared as a variable?
@@ -275,7 +275,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			};
 			op_size = varlist.get(iden_index).size;
 			command_table = table;
-		} else if (varlist.lookup(stmt.operand) != -1) {
+		} else if (varlist.lookup(stmt.lhs) != -1) {
 			const char * table[] = {
 				"store_const", "store16_const",
 				"store24_const", "store32_const"
@@ -325,7 +325,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				{argtype::VAR, stmt.identifier}
 			};
 		} else {
-			rhs = auto_cast(dest, varlist.required_get(stmt.operand));
+			rhs = auto_cast(dest, varlist.required_get(stmt.lhs));
 			args = {
 				{argtype::VAR, lhs},
 				{argtype::VAR, rhs},
