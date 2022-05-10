@@ -1,3 +1,11 @@
+DEF rLCDC EQU $FF40
+DEF rLY EQU $FF44
+DEF rBGP EQU $FF47
+DEF rIE EQU $FFFF
+
+SECTION "VBlank", ROM0[$40]
+	reti
+
 SECTION "Header", ROM0[$100]
 Entry:
 	di
@@ -6,13 +14,14 @@ Entry:
 
 SECTION "Main", ROM0
 Main:
-	ldh a, [$FF44]
+	ldh a, [rLY]
 	cp a, 144
 	jr c, Main
 	xor a, a
-	ldh [$FF40], a
-	ld a, %11111100
-	ldh [$FF47], a
+	ldh [rLCDC], a
+	ldh [rBGP], a
+	inc a
+	ldh [rIE], a
 
 	ld bc, Font.end - Font
 	ld de, Font
@@ -30,8 +39,12 @@ Main:
 	ld hl, TestScript
 	call ExecuteScript
 	ld a, %10010001
-	ldh [$FF40], a
+	ldh [rLCDC], a
+	ei
 .forever
+	halt
+	ld de, wScriptPool
+	call ExecuteScript
 	jr .forever
 
 SECTION "Print Function", ROM0

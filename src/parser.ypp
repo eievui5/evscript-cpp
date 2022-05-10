@@ -62,7 +62,7 @@
 %type <arg> argument
 %type <std::vector<arg>> arguments
 %type <statement> statement
-%type <statement> conditional
+%type <statement> control
 %type <std::vector<statement>> statements
 %type <script> script
 %type <def_pair> declaration
@@ -171,7 +171,7 @@ statements: %empty {}
 	$1.push_back(stmt);
 	$$ = $1;
 }
-| statements conditional {
+| statements control {
 	$2.l = @2;
 	$1.push_back($2);
 	$$ = $1;
@@ -222,6 +222,34 @@ statement:
 	$$.type = statement_type::DROP;
 	$$.identifier = $2;
 }
+| "break" { $$.type = statement_type::BREAK; }
+| "continue" { $$.type = statement_type::CONTINUE; }
+| "return" { $$.type = statement_type::CALL; $$.identifier = "return"; }
+| "yield" { $$.type = statement_type::CALL; $$.identifier = "yield"; }
+// These should insert code to automatically choose "far" versions.
+| "goto" "identifier" { $$.type = statement_type::GOTO; $$.identifier = $2; }
+| "call" "identifier" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
+;
+
+control: 
+// Control structures
+  "if" statement "{" statements "}" {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+}
+| "if" statement "{" statements "}" "else" "{" statements "}" {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+	$$.else_statements = $8;
+}
+| "if" statement "{" statements "}" "else" control {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+	$$.else_statements.push_back($7);
+}
 | "while" statement "{" statements "}" {
 	$$.type = statement_type::WHILE;
 	$$.conditions.push_back($2);
@@ -247,34 +275,6 @@ statement:
 | "loop" "{" statements "}" {
 	$$.type = statement_type::LOOP;
 	$$.statements = $3;
-}
-| "break" { $$.type = statement_type::BREAK; }
-| "continue" { $$.type = statement_type::CONTINUE; }
-| "return" { $$.type = statement_type::CALL; $$.identifier = "return"; }
-| "yield" { $$.type = statement_type::CALL; $$.identifier = "yield"; }
-// These should insert code to automatically choose "far" versions.
-| "goto" "identifier" { $$.type = statement_type::GOTO; $$.identifier = $2; }
-| "call" "identifier" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
-;
-
-conditional: 
-// Control structures
-  "if" statement "{" statements "}" {
-	$$.type = statement_type::IF;
-	$$.conditions.push_back($2);
-	$$.statements = $4;
-}
-| "if" statement "{" statements "}" "else" "{" statements "}" {
-	$$.type = statement_type::IF;
-	$$.conditions.push_back($2);
-	$$.statements = $4;
-	$$.else_statements = $8;
-}
-| "if" statement "{" statements "}" "else" conditional {
-	$$.type = statement_type::IF;
-	$$.conditions.push_back($2);
-	$$.statements = $4;
-	$$.else_statements.push_back($7);
 };
 
 parameters:

@@ -205,7 +205,7 @@ StdAdd:
 
 StdSub:
 	call OperandPrologue
-	add a, b ; Here is the actual operation
+	sub a, b ; Here is the actual operation
 	jr StoreEpilogue
 
 ; This is a VERY simple multiply routine. It is meant to be compact, not
@@ -289,7 +289,7 @@ StdAddConst:
 
 StdSubConst:
 	call ConstantOperandPrologue
-	add a, b ; Here is the actual operation
+	sub a, b ; Here is the actual operation
 	jr StoreEpilogue
 
 ; This is a VERY simple multiply routine. It is meant to be compact, not
@@ -458,14 +458,6 @@ StdStoreConst:
 	ld c, a
 	ld a, [hli]
 	ld b, a
-	ld a, [bc]
-	inc bc
-	push de
-	ld e, a
-	ld a, [bc]
-	ld b, a
-	ld c, e
-	pop de
 	ld a, [hli]
 	add a, e
 	ld e, a
@@ -474,3 +466,4 @@ StdStoreConst:
 	ld d, a
 	ld a, [de]
 	ld [bc], a
+	ret

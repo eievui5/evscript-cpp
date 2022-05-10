@@ -90,6 +90,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	string_table s_table;
 	label_table l_table;
 
+	std::function<void(const statement&)> compile_statement;
+	std::function<void(const std::vector<statement>&)> compile_statements;
+
 	// TODO: This needs to be removed as it cannot support u24s
 	auto print_d = [&](size_t size) {
 		switch (size) {
@@ -313,6 +316,49 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_standard("goto", {{argtype::VAR, stmt.identifier}});
 	};
 
+	auto compile_IF = [&](const statement& stmt) {
+		std::string end_label = fmt::format("__endif_{}", l_table.size());
+		l_table.emplace(end_label);
+		std::string else_label = fmt::format("__endelse_{}", l_table.size());
+		l_table.emplace(else_label);
+		bool has_else = stmt.else_statements.size();
+
+		compile_statement(stmt.conditions[0]);
+		print_standard("goto_conditional_not", {
+			{argtype::VAR, stmt.conditions[0].identifier},
+			{argtype::VAR, end_label}
+		}); 
+		compile_statements(stmt.statements);
+		if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
+		fmt::print(out, ".{}\n", end_label); 
+		if (has_else) {
+			compile_statements(stmt.else_statements);
+			fmt::print(out, ".{}\n", else_label);
+		}
+	};
+
+	auto compile_WHILE = [&](const statement& stmt) {
+		std::string begin_label = fmt::format("__beginwhile_{}", l_table.size());
+		l_table.emplace(begin_label);
+		std::string end_label = fmt::format("__endwhile_{}", l_table.size());
+		l_table.emplace(end_label);
+		std::string cond_label = fmt::format("__whilecondition_{}", l_table.size());
+		l_table.emplace(cond_label);
+
+		// Rather than jumping to the start each iteration to check the
+		// condition, jump to the bottom and check it there each iterations
+		print_standard("goto", {{argtype::VAR, cond_label}});
+		fmt::print(out, ".{}\n", begin_label);
+		compile_statements(stmt.statements);
+		fmt::print(out, ".{}\n", cond_label);
+		compile_statement(stmt.conditions[0]);
+		print_standard("goto_conditional", {
+			{argtype::VAR, stmt.conditions[0].identifier},
+			{argtype::VAR, begin_label}
+		});
+		fmt::print(out, ".{}\n", end_label);
+	};
+
 	auto compile_OPERATION = [&](const statement& stmt) {
 		std::vector<arg> args;
 
@@ -348,9 +394,6 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		if (!is_const) varlist.auto_free(rhs);
 	};
 
-	std::function<void(const statement&)> compile_statement;
-	std::function<void(const std::vector<statement>&)> compile_statements;
-
 	compile_statement = [&](const statement& stmt) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
@@ -367,26 +410,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			COMPILE(DROP);
 			COMPILE(LABEL);
 			COMPILE(GOTO);
-			case IF: {
-				std::string end_label = fmt::format("__endif_{}", l_table.size());
-				l_table.emplace(end_label);
-				std::string else_label = fmt::format("__endelse_{}", l_table.size());
-				l_table.emplace(else_label);
-				bool has_else = stmt.else_statements.size();
-
-				compile_statement(stmt.conditions[0]);
-				print_standard("goto_conditional_not", {
-					{argtype::VAR, stmt.conditions[0].identifier},
-					{argtype::VAR, end_label}
-				}); 
-				compile_statements(stmt.statements);
-				if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
-				fmt::print(out, ".{}\n", end_label); 
-				if (has_else) {
-					compile_statements(stmt.else_statements);
-					fmt::print(out, ".{}\n", else_label);
-				}
-			} break;
+			COMPILE(IF);
+			COMPILE(WHILE);
 		}
 		#undef COMPILE
 	};
