@@ -2,4 +2,4 @@
 *.hpp linguist-language=C++
 *.ypp linguist-language=Bison
 *.lpp linguist-language=Flex
-src/libs* linguist-vendored
+src/libs/* linguist-vendored
