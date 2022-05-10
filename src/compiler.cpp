@@ -1,4 +1,5 @@
 #include <fmt/format.h>
+#include <functional>
 #include <unordered_set>
 #include "exception.hpp"
 #include "types.hpp"
@@ -89,12 +90,12 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	string_table s_table;
 	label_table l_table;
 
-	// This needs to be removed as it cannot support u24s
+	// TODO: This needs to be removed as it cannot support u24s
 	auto print_d = [&](size_t size) {
 		switch (size) {
-		case 1: fmt::print(out, "\tdb "); break;
-		case 2: fmt::print(out, "\tdw "); break;
-		case 4: fmt::print(out, "\tdl "); break;
+		case 1:fmt::print(out, "\tdb "); break;
+		case 2:fmt::print(out, "\tdw "); break;
+		case 4:fmt::print(out, "\tdl "); break;
 		default:
 			err::fatal("Cannot output value of size {}", size);
 			break;
@@ -256,9 +257,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_COPY = [&](const statement& stmt) {
-		std::vector<arg> args = {{argtype::VAR, stmt.identifier}, {argtype::VAR, stmt.lhs}};
-		int iden_index = varlist.lookup(stmt.identifier);
-		int oper_index = varlist.lookup(stmt.lhs);
+		std::vector<arg> args = {{argtype::VAR, stmt.lhs}, {argtype::VAR, stmt.rhs}};
+		int iden_index = varlist.lookup(stmt.lhs);
+		int oper_index = varlist.lookup(stmt.rhs);
 		unsigned op_size;
 		const char ** command_table;
 		// Is the destination declared as a variable?
@@ -275,7 +276,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			};
 			op_size = varlist.get(iden_index).size;
 			command_table = table;
-		} else if (varlist.lookup(stmt.lhs) != -1) {
+		} else if (oper_index != -1) {
 			const char * table[] = {
 				"store_const", "store16_const",
 				"store24_const", "store32_const"
@@ -309,20 +310,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_GOTO = [&](const statement& stmt) {
-		fmt::print(out, "IF BANK({}) == BANK(@)\n", stmt.identifier);
 		print_standard("goto", {{argtype::VAR, stmt.identifier}});
-		fmt::print(out, "ELSE\n");
-		print_standard("goto_far", {{argtype::VAR, stmt.identifier}});
-		fmt::print(out, "ENDC\n");
 	};
 
 	auto compile_OPERATION = [&](const statement& stmt) {
 		std::vector<arg> args;
 
 		variable& dest = varlist.required_get(stmt.identifier);
-		// TODO: This should use a seperate value to allow for a = x + y expressions.
-		// Until then, this line is a no-op.
-		std::string lhs = auto_cast(dest, varlist.required_get(stmt.identifier));
+		std::string lhs = auto_cast(dest, varlist.required_get(stmt.lhs));
 		bool is_const = stmt.type < ADD;
 		std::string rhs;
 
@@ -333,7 +328,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				{argtype::VAR, stmt.identifier}
 			};
 		} else {
-			rhs = auto_cast(dest, varlist.required_get(stmt.lhs));
+			rhs = auto_cast(dest, varlist.required_get(stmt.rhs));
 			args = {
 				{argtype::VAR, lhs},
 				{argtype::VAR, rhs},
@@ -352,13 +347,11 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		varlist.auto_free(lhs);
 		if (!is_const) varlist.auto_free(rhs);
 	};
-	if (env.section != "" && env.section != "none") {
-		fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
-	}
-	for (const auto& stmt : statements) {
-		if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
-	}
-	for (const auto& stmt : statements) {
+
+	std::function<void(const statement&)> compile_statement;
+	std::function<void(const std::vector<statement>&)> compile_statements;
+
+	compile_statement = [&](const statement& stmt) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
 			case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
@@ -373,9 +366,44 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			COMPILE(DECLARE_COPY);
 			COMPILE(DROP);
 			COMPILE(LABEL);
+			COMPILE(GOTO);
+			case IF: {
+				std::string end_label = fmt::format("__endif_{}", l_table.size());
+				l_table.emplace(end_label);
+				std::string else_label = fmt::format("__endelse_{}", l_table.size());
+				l_table.emplace(else_label);
+				bool has_else = stmt.else_statements.size();
+
+				compile_statement(stmt.conditions[0]);
+				print_standard("goto_conditional_not", {
+					{argtype::VAR, stmt.conditions[0].identifier},
+					{argtype::VAR, end_label}
+				}); 
+				compile_statements(stmt.statements);
+				if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
+				fmt::print(out, ".{}\n", end_label); 
+				if (has_else) {
+					compile_statements(stmt.else_statements);
+					fmt::print(out, ".{}\n", else_label);
+				}
+			} break;
 		}
 		#undef COMPILE
+	};
+
+	compile_statements = [&](const std::vector<statement>& list) {
+		for (const auto& stmt : list) {
+			if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
+		}
+		for (const auto& stmt : list) {
+			compile_statement(stmt);
+		}
+	};
+
+	if (env.section != "" && env.section != "none") {
+		fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
 	}
+	compile_statements(statements);
 	print_value(1, env.terminator);
 	// Define constant strings
 	for (size_t i = 0; i < s_table.size(); i++) {

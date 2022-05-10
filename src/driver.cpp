@@ -12,7 +12,9 @@ void driver::load_std(environment& env) {
 		{ "goto_far",             {DEF, i++, {{CON, 3}}}},
 		// test, dest
 		{ "goto_conditional",     {DEF, i++, {{ARG, 1}, {CON, 2}}}},
+		{ "goto_conditional_not", {DEF, i++, {{ARG, 1}, {CON, 2}}}},
 		{ "goto_conditional_far", {DEF, i++, {{ARG, 1}, {CON, 3}}}},
+		{ "goto_conditional_not_far", {DEF, i++, {{ARG, 1}, {CON, 3}}}},
 		// dest
 		{ "callasm",              {DEF, i++, {{CON, 2}}}},
 		{ "callasm_far",          {DEF, i++, {{CON, 3}}}},

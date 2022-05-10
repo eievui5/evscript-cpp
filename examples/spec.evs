@@ -86,12 +86,11 @@ script HelloWorld {
 	move_player(1, 1);
 	move_actor(wEnemy, 3, 1);
 
-	goto my_label;
-	// A label can be defined using an identifier followed by a colon.
-my_label:
-	// This jump is obviously a no-op. While this compiler may introduce
-	// optimizations to optimize common patterns, it is not a priority, since
-	// scripts are expected to be relatively slow.
+	if value = 4 {
+		value = 5;
+	} else if value = 5 {
+		value = 6;
+	}
 
 	// The standard environment defines `yield()`, which is nearly identical to
 	// `return()`. It's intended for scripts which should pick up later, for

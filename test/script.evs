@@ -1,8 +1,14 @@
 env script {
 	use std;
 	def print(const ptr);
+	pool = 16;
 }
 
 script TestScript {
-	print("Hello, world!");
+	u8 value = 0;
+	if value += 1 {
+		print("Hello, world!");
+	} else {
+		print("Where am I?");
+	}
 }

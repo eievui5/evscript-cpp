@@ -21,8 +21,8 @@
 
 %code {
 	#include "driver.hpp"
-	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.value = r;;
-	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.lhs = r;;
+	#define CONSTOP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.lhs = l; res.value = r;
+	#define VAROP(res, l, r, op) res.type = statement_type::op; res.identifier = l; res.lhs = l; res.rhs = r;
 }
 
 %define api.token.raw
@@ -33,6 +33,7 @@
 %define parse.trace
 %define parse.error detailed
 %define parse.lac full
+
 
 %param { driver& drv }
 %locations
@@ -48,7 +49,7 @@
 	ENV "env" ASM "asm"
 	DEF "def" MAC "mac" USE "use" TERM "terminator" SECT "section" POOL "pool"
 	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big" DROP "drop" INCLUDE "include"
-	IF "if" WHILE "while" DO "do" FOR "for" REPEAT "repeat" LOOP "loop"
+	IF "if" ELSE "else" WHILE "while" DO "do" FOR "for" REPEAT "repeat" LOOP "loop"
 	BREAK "break" CONTINUE "continue" RETURN "return" YIELD "yield" GOTO "goto" CALLASM "call"
 ;
 %token <std::string> IDENTIFIER "identifier"
@@ -61,6 +62,7 @@
 %type <arg> argument
 %type <std::vector<arg>> arguments
 %type <statement> statement
+%type <statement> conditional
 %type <std::vector<statement>> statements
 %type <script> script
 %type <def_pair> declaration
@@ -158,78 +160,84 @@ script:
   	drv.scripts[$2].env = $1;
 };
 
-statements: %empty {} | statements statement {
-	$1.push_back($2); $$ = $1;
-};
+statements: %empty {}
+| statements statement ";" {
+	$2.l = @2;
+	$1.push_back($2);
+	$$ = $1;
+}
+| statements "identifier" ":" {
+	statement stmt = {.type = statement_type::LABEL, .identifier = $2, .l = @2};
+	$1.push_back(stmt);
+	$$ = $1;
+}
+| statements conditional {
+	$2.l = @2;
+	$1.push_back($2);
+	$$ = $1;
+}
+;
 statement:
-  "identifier" "(" arguments ")" ";" {
+  "{" statement "}" { $$ = $2; }
+| "identifier" "(" arguments ")" {
 	$$.type = statement_type::CALL;
 	$$.identifier = $1;
 	$$.args = $3;
 }
 // constant operations
 // TODO: Add z = x <> y operations.
-| "identifier" "=" "number" ";"  { CONSTOP($$, $1, $3, ASSIGN); }
-| "identifier" "+=" "number" ";" { CONSTOP($$, $1, $3, CONST_ADD); }
-| "identifier" "-=" "number" ";" { CONSTOP($$, $1, $3, CONST_SUB); }
-| "identifier" "*=" "number" ";" { CONSTOP($$, $1, $3, CONST_MULT); }
-| "identifier" "/=" "number" ";" { CONSTOP($$, $1, $3, CONST_DIV); }
+| "identifier" "=" "number"  { CONSTOP($$, $1, $3, ASSIGN); }
+| "identifier" "+=" "number" { CONSTOP($$, $1, $3, CONST_ADD); }
+| "identifier" "-=" "number" { CONSTOP($$, $1, $3, CONST_SUB); }
+| "identifier" "*=" "number" { CONSTOP($$, $1, $3, CONST_MULT); }
+| "identifier" "/=" "number" { CONSTOP($$, $1, $3, CONST_DIV); }
 // variable operations
-| "identifier" "=" "identifier" ";"  { VAROP($$, $1, $3, COPY); } // may load a global
-| "identifier" "+=" "identifier" ";" { VAROP($$, $1, $3, ADD); }
-| "identifier" "-=" "identifier" ";" { VAROP($$, $1, $3, SUB); }
-| "identifier" "*=" "identifier" ";" { VAROP($$, $1, $3, MULT); }
-| "identifier" "/=" "identifier" ";" { VAROP($$, $1, $3, DIV); }
-| "identifier" "identifier" ";" {
+| "identifier" "=" "identifier"  { VAROP($$, $1, $3, COPY); } // may load a global
+| "identifier" "+=" "identifier" { VAROP($$, $1, $3, ADD); }
+| "identifier" "-=" "identifier" { VAROP($$, $1, $3, SUB); }
+| "identifier" "*=" "identifier" { VAROP($$, $1, $3, MULT); }
+| "identifier" "/=" "identifier" { VAROP($$, $1, $3, DIV); }
+| "identifier" "identifier" {
 	$$.type = statement_type::DECLARE;
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
 }
 // declare with constant value
-| "identifier" "identifier" "=" "number" ";" {
+| "identifier" "identifier" "=" "number" {
 	$$.type = statement_type::DECLARE_ASSIGN;
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
+	$$.lhs = $2;
 	$$.value = $4;
 }
 // declare with copy or global load
-| "identifier" "identifier" "=" "identifier" ";" {
+| "identifier" "identifier" "=" "identifier" {
 	$$.type = statement_type::DECLARE_COPY;
 	$$.size = drv.get_type($1);
 	$$.identifier = $2;
-	$$.lhs = $4;
+	$$.lhs = $2;
+	$$.rhs = $4;
 }
-// label
-| "identifier" ":" {
-	$$.type = statement_type::LABEL;
-	$$.identifier = $1;
-}
-| "drop" "identifier" ";" {
+| "drop" "identifier" {
 	$$.type = statement_type::DROP;
 	$$.identifier = $2;
-}
-// Control structures
-| "if" statement "{" statements "}" {
-	$$.type = statement_type::IF;
-	$$.conditions.push_back($2);
-	$$.statements = $4;
 }
 | "while" statement "{" statements "}" {
 	$$.type = statement_type::WHILE;
 	$$.conditions.push_back($2);
 	$$.statements = $4;
 }
-| "do" "{" statements "}" "while" statement ";" {
+| "do" "{" statements "}" "while" statement {
 	$$.type = statement_type::DO;
 	$$.conditions.push_back($6);
 	$$.statements = $3;
 }
-| "for" statement ";" statement ";" statement ";" "{" statements "}" {
+| "for" statement statement statement "{" statements "}" {
 	$$.type = statement_type::FOR;
 	$$.conditions.push_back($2);
+	$$.conditions.push_back($3);
 	$$.conditions.push_back($4);
-	$$.conditions.push_back($6);
-	$$.statements = $9;
+	$$.statements = $6;
 }
 | "repeat" "number" "{" statements "}" {
 	$$.type = statement_type::REPEAT;
@@ -240,14 +248,34 @@ statement:
 	$$.type = statement_type::LOOP;
 	$$.statements = $3;
 }
-| "break" ";" { $$.type = statement_type::BREAK; }
-| "continue" ";" { $$.type = statement_type::CONTINUE; }
-| "return" ";" { $$.type = statement_type::CALL; $$.identifier = "return"; }
-| "yield" ";" { $$.type = statement_type::CALL; $$.identifier = "yield"; }
+| "break" { $$.type = statement_type::BREAK; }
+| "continue" { $$.type = statement_type::CONTINUE; }
+| "return" { $$.type = statement_type::CALL; $$.identifier = "return"; }
+| "yield" { $$.type = statement_type::CALL; $$.identifier = "yield"; }
 // These should insert code to automatically choose "far" versions.
-| "goto" "identifier" ";" { $$.type = statement_type::GOTO; $$.identifier = $2; }
-| "call" "identifier" ";" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
+| "goto" "identifier" { $$.type = statement_type::GOTO; $$.identifier = $2; }
+| "call" "identifier" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
 ;
+
+conditional: 
+// Control structures
+  "if" statement "{" statements "}" {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+}
+| "if" statement "{" statements "}" "else" "{" statements "}" {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+	$$.else_statements = $8;
+}
+| "if" statement "{" statements "}" "else" conditional {
+	$$.type = statement_type::IF;
+	$$.conditions.push_back($2);
+	$$.statements = $4;
+	$$.else_statements.push_back($7);
+};
 
 parameters:
   %empty {}

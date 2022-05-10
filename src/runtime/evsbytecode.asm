@@ -9,7 +9,9 @@ MACRO std_bytecode
 	dw StdGoto
 	dw StdGotoFar
 	dw StdGotoConditional
+	dw StdGotoConditionalNot
 	dw StdGotoConditionalFar
+	dw StdGotoConditionalNotFar
 	dw StdCallAsm
 	dw StdCallAsmFar
 	; 8-bit ops
@@ -67,6 +69,21 @@ StdGotoConditional:
 	inc hl
 	ret
 
+StdGotoConditionalNot:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [bc]
+	and a, a
+	jr z, StdGoto
+.fail
+	inc hl
+	inc hl
+	ret
+
 SECTION "EVScript GotoFar", ROM0
 StdGotoFar:
 	ld a, [hli]
@@ -89,6 +106,21 @@ StdGotoConditionalFar:
 	ld a, [bc]
 	and a, a
 	jr nz, StdGotoFar
+.fail
+	inc hl
+	inc hl
+	ret
+
+StdGotoConditionalNotFar:
+	ld a, [hli]
+	add a, e
+	ld c, a
+	adc a, d
+	sub a, c
+	ld b, a
+	ld a, [bc]
+	and a, a
+	jr z, StdGotoFar
 .fail
 	inc hl
 	inc hl
@@ -136,9 +168,9 @@ ConstantOperandPrologue:
 	sub a, c
 	ld b, a
 	; de is preserved & variable is pointed to by bc
-	ld a, [hli]
-	ld b, a
 	ld a, [bc]
+	ld b, [hl]
+	inc hl
 	ret
 
 ; @param de: pool

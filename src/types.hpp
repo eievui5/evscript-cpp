@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
+#include "location.hh"
 
 enum deftype { DEF, MAC, ALIAS };
 enum partype { ARG, CON, VARARGS };
@@ -64,8 +65,10 @@ struct statement {
 	std::vector<arg> args;
 	std::vector<statement> statements;
 	std::vector<statement> conditions;
+	std::vector<statement> else_statements;
 	unsigned value;
 	unsigned size;
+	yy::location l;
 };
 
 struct script {
