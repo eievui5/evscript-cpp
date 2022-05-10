@@ -8,8 +8,6 @@
 - [GNU Make 4.3](https://www.gnu.org/software/make/)
 - A C++20 compiler
 
-Windows is not supported by any means. Use [WSL](https://docs.microsoft.com/en-us/windows/wsl/install).
-
 ## Building
 
 Navigate to the project root and execute `make`.
