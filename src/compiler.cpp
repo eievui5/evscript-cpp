@@ -525,8 +525,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	if (env.section != "" && env.section != "none") {
-		fmt::print(out, "\nSECTION \"{0} evscript section\", {1}\n{0}::\n", name, env.section);
+		fmt::print(out, "\nSECTION \"{} evscript section\", {}\n", name, env.section);
 	}
+	fmt::print(out, "{}::\n", name);
 	compile_statements(statements);
 	print_value(1, env.terminator);
 	// Define constant strings
