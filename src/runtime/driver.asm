@@ -2,6 +2,10 @@ SECTION "EVScript Driver", ROM0
 ; @param de: Variable pool
 ; @param hl: Script pointer
 ExecuteScript::
+	ld a, h
+	or a, l
+	ret z
+.next
 	ld a, [hli]
 	push hl
 	ld hl, EVScriptBytecodeTable / 1
@@ -19,7 +23,7 @@ ExecuteScript::
 	push de
 	call .callBC
 	pop de
-	jr ExecuteScript
+	jr ExecuteScript.next
 
 .callBC
 	push bc

@@ -260,12 +260,12 @@ control:
 	$$.conditions.push_back($6);
 	$$.statements = $3;
 }
-| "for" statement statement statement "{" statements "}" {
+| "for" statement ";" statement ";"  statement "{" statements "}" {
 	$$.type = statement_type::FOR;
 	$$.conditions.push_back($2);
-	$$.conditions.push_back($3);
 	$$.conditions.push_back($4);
-	$$.statements = $6;
+	$$.conditions.push_back($6);
+	$$.statements = $8;
 }
 | "repeat" "number" "{" statements "}" {
 	$$.type = statement_type::REPEAT;

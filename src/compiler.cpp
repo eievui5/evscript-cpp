@@ -14,7 +14,7 @@ class variable_list {
 	std::vector<variable> variables;
 
 public:
-	size_t alloc(unsigned size, bool internal, const std::string& name) {
+	std::string alloc(unsigned size, bool internal, const std::string& name = "") {
 		size_t i = 0;
 		while (i <= variables.size() - size) {
 			for (size_t j = i; j < i + size; j++) {
@@ -31,7 +31,7 @@ public:
 		variables[i].internal = internal;
 		if (internal) variables[i].name = fmt::format("__evstemp{}", i);
 		else variables[i].name = name;
-		return i;
+		return variables[i].name;
 	}
 
 
@@ -110,10 +110,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		fmt::print(out, "{}\n", value);
 	};
 
-	auto print_label = [&](size_t size, std::string label) {
-		switch (size) {
+	auto generate_label = [&](const std::string& l) {
+		std::string label = fmt::format("__{}_{}", l, l_table.size());
+		l_table.emplace(label);
+		return label;
+	};
 
-		}
+	auto print_label = [&](std::string label) {
+		fmt::print(out, ".{}\n", label);
 	};
 
 	auto print_argument = [&](const arg& argument) {
@@ -227,7 +231,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	auto auto_cast = [&](variable& dest, variable& source) {
 		std::string cast = dest.name;
 		if (dest.size != source.size) {
-			cast = varlist.get(varlist.alloc(dest.size, true, "")).name;
+			cast = varlist.alloc(dest.size, true);
 			print_standard(
 				fmt::format("cast_{}to{}", source.size * 8, dest.size * 8),
 				{{argtype::VAR, cast}, {argtype::VAR, source.name}}
@@ -250,8 +254,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_DECLARE = [&](const statement& stmt) {
-		size_t index = varlist.alloc(stmt.size, false, stmt.identifier);
-		fmt::print(out, "\t; Allocated {} at {}\n", stmt.identifier, index);
+		varlist.alloc(stmt.size, false, stmt.identifier);
 	};
 
 	auto compile_DECLARE_ASSIGN = [&](const statement& stmt) {
@@ -309,7 +312,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_LABEL = [&](const statement& stmt) {
-		fmt::print(out, ".{}\n", stmt.identifier);
+		print_label(stmt.identifier);
 	};
 
 	auto compile_GOTO = [&](const statement& stmt) {
@@ -317,10 +320,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_IF = [&](const statement& stmt) {
-		std::string end_label = fmt::format("__endif_{}", l_table.size());
-		l_table.emplace(end_label);
-		std::string else_label = fmt::format("__endelse_{}", l_table.size());
-		l_table.emplace(else_label);
+		std::string end_label = generate_label("endif");
+		std::string else_label = generate_label("endelse");
 		bool has_else = stmt.else_statements.size();
 
 		compile_statement(stmt.conditions[0]);
@@ -330,34 +331,110 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}); 
 		compile_statements(stmt.statements);
 		if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
-		fmt::print(out, ".{}\n", end_label); 
+		print_label(end_label);
 		if (has_else) {
 			compile_statements(stmt.else_statements);
-			fmt::print(out, ".{}\n", else_label);
+			print_label(else_label);
 		}
 	};
 
 	auto compile_WHILE = [&](const statement& stmt) {
-		std::string begin_label = fmt::format("__beginwhile_{}", l_table.size());
-		l_table.emplace(begin_label);
-		std::string end_label = fmt::format("__endwhile_{}", l_table.size());
-		l_table.emplace(end_label);
-		std::string cond_label = fmt::format("__whilecondition_{}", l_table.size());
-		l_table.emplace(cond_label);
+		std::string begin_label = generate_label("beginwhile");
+		std::string end_label = generate_label("endwhile");
+		std::string cond_label = generate_label("whilecondition");
 
 		// Rather than jumping to the start each iteration to check the
 		// condition, jump to the bottom and check it there each iterations
 		print_standard("goto", {{argtype::VAR, cond_label}});
-		fmt::print(out, ".{}\n", begin_label);
+		print_label(begin_label);
 		compile_statements(stmt.statements);
-		fmt::print(out, ".{}\n", cond_label);
+		print_label(cond_label);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional", {
 			{argtype::VAR, stmt.conditions[0].identifier},
 			{argtype::VAR, begin_label}
 		});
-		fmt::print(out, ".{}\n", end_label);
+		print_label(end_label);
 	};
+
+	auto compile_DO = [&](const statement& stmt) {
+		std::string begin_label = generate_label("begindo");
+		std::string end_label = generate_label("enddo");
+		std::string cond_label = generate_label("docondition");
+
+		print_label(begin_label);
+		compile_statements(stmt.statements);
+		print_label(cond_label);
+		compile_statement(stmt.conditions[0]);
+		print_standard("goto_conditional", {
+			{argtype::VAR, stmt.conditions[0].identifier},
+			{argtype::VAR, begin_label}
+		});
+		print_label(end_label);
+	};
+
+	auto compile_FOR = [&](const statement& stmt) {
+		std::string begin_label = generate_label("beginfor");
+		std::string end_label = generate_label("endfor");
+
+		// compile prologue.
+		compile_statement(stmt.conditions[0]);
+		print_label(begin_label);
+		// Condition
+		compile_statement(stmt.conditions[1]);
+		print_standard("goto_conditional_not", {
+			{argtype::VAR, stmt.conditions[1].identifier},
+			{argtype::VAR, end_label}
+		});
+
+		compile_statements(stmt.statements);
+		compile_statement(stmt.conditions[2]);
+		print_standard("goto", {{argtype::VAR, begin_label}});
+
+		print_label(end_label);
+	};
+
+	auto compile_REPEAT = [&](const statement& stmt) {
+		if (stmt.value == 0) return;
+
+		std::string begin_label = generate_label("beginrepeat");
+		std::string cond_label = generate_label("repeatcondition");
+		std::string end_label = generate_label("endrepeat");
+		size_t i_size;
+
+		if (stmt.value < 256) i_size = 1;
+		else if (stmt.value < 65536) i_size = 2;
+		else err::fatal("Repeat loops are limited to 65536 iterations");
+
+		// compile prologue.
+		std::string temp_var = varlist.alloc(i_size, true);
+		print_standard(
+			i_size == 1 ? "copy_const" : fmt::format("copy{}_const", i_size * 8),
+			{{argtype::VAR, temp_var}, {argtype::NUM, .value = stmt.value}}
+		);
+		print_label(begin_label);
+		compile_statements(stmt.statements);
+		print_label(cond_label);
+		print_standard(
+			i_size == 1 ? "sub_const" : fmt::format("sub{}_const", i_size * 8),
+			{{argtype::VAR, temp_var}, {argtype::NUM, .value = 1}, {argtype::VAR, temp_var}}
+		);
+		print_standard("goto_conditional", {
+			{argtype::VAR, temp_var},
+			{argtype::VAR, begin_label}
+		});
+		print_label(end_label);
+	};
+
+	auto compile_LOOP = [&](const statement& stmt) {
+		std::string begin_label = generate_label("beginloop");
+		std::string end_label = generate_label("endloop");
+		print_label(begin_label);
+		compile_statements(stmt.statements);
+		print_standard("goto", {{argtype::VAR, begin_label}});
+		print_label(end_label);
+	};
+
 
 	auto compile_OPERATION = [&](const statement& stmt) {
 		std::vector<arg> args;
@@ -407,10 +484,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			COMPILE(DECLARE);
 			COMPILE(DECLARE_ASSIGN);
 			COMPILE(DECLARE_COPY);
+			COMPILE(DO);
 			COMPILE(DROP);
+			COMPILE(FOR);
 			COMPILE(LABEL);
+			COMPILE(LOOP);
 			COMPILE(GOTO);
 			COMPILE(IF);
+			COMPILE(REPEAT);
 			COMPILE(WHILE);
 		}
 		#undef COMPILE
