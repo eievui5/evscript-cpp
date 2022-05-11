@@ -8,7 +8,7 @@ script TestScript {
 	u8 value = 0;
 
 	// This will print "Hello, world!", since value is nonzero.
-	if value += 1 {
+	if value + 0 {
 		print("Hello, world!");
 	} else {
 		print("Where am I?");

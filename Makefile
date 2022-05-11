@@ -25,7 +25,8 @@ rebuild:
 	$(MAKE) all
 
 test: all
-	./$(BIN) $(TESTFLAGS)
+	cd test/ && ./build.sh
+	open test/bin/test.gb
 
 memcheck: all
 	valgrind --leak-check=full ./$(BIN) $(TESTFLAGS)

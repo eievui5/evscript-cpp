@@ -90,8 +90,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	string_table s_table;
 	label_table l_table;
 
-	std::function<void(const statement&)> compile_statement;
-	std::function<void(const std::vector<statement>&)> compile_statements;
+	std::function<void(statement&)> compile_statement;
+	std::function<void(std::vector<statement>&)> compile_statements;
 
 	// TODO: This needs to be removed as it cannot support u24s
 	auto print_d = [&](size_t size) {
@@ -240,7 +240,20 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		return cast;
 	};
 
-	auto compile_ASSIGN = [&](const statement& stmt) {
+	auto conditional_operation = [&](statement& stmt) {
+		if (stmt.type >= ASSIGN && stmt.type <= DIV) {
+			unsigned lhs_size = varlist.required_get(stmt.lhs).size;
+			unsigned rhs_size = varlist.required_get(stmt.rhs).size;
+			unsigned size = lhs_size > rhs_size ? lhs_size : rhs_size;
+			if (stmt.identifier.length() == 0) {
+				stmt.identifier = varlist.alloc(size, true);
+			}
+		} else {
+			err::warn("Statement cannot be evaluated as condition");
+		}
+	};
+
+	auto compile_ASSIGN = [&](statement& stmt) {
 		const char * command_table[] = {
 			"copy_const", "copy16_const", "copy24_const", "copy32_const"
 		};
@@ -253,16 +266,16 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_standard(command_table[var->size - 1], args);
 	};
 
-	auto compile_DECLARE = [&](const statement& stmt) {
+	auto compile_DECLARE = [&](statement& stmt) {
 		varlist.alloc(stmt.size, false, stmt.identifier);
 	};
 
-	auto compile_DECLARE_ASSIGN = [&](const statement& stmt) {
+	auto compile_DECLARE_ASSIGN = [&](statement& stmt) {
 		compile_DECLARE(stmt);
 		compile_ASSIGN(stmt);
 	};
 
-	auto compile_COPY = [&](const statement& stmt) {
+	auto compile_COPY = [&](statement& stmt) {
 		std::vector<arg> args = {{argtype::VAR, stmt.lhs}, {argtype::VAR, stmt.rhs}};
 		int iden_index = varlist.lookup(stmt.lhs);
 		int oper_index = varlist.lookup(stmt.rhs);
@@ -295,35 +308,36 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_standard(command_table[op_size - 1], args);
 	};
 
-	auto compile_DECLARE_COPY = [&](const statement& stmt) {
+	auto compile_DECLARE_COPY = [&](statement& stmt) {
 		compile_DECLARE(stmt);
 		compile_COPY(stmt);
 	};
 
-	auto compile_CALL = [&](const statement& stmt) {
+	auto compile_CALL = [&](statement& stmt) {
 		definition * def = env.get_define(stmt.identifier);
 		if (!def) err::fatal("Definition of {} not found", stmt.identifier); 
 		print_definition(stmt.identifier, *def, stmt.args);
 	};
 
-	auto compile_DROP = [&](const statement& stmt) {
+	auto compile_DROP = [&](statement& stmt) {
 		varlist.free(stmt.identifier);
 		fmt::print(out, "\t; Dropped {}", stmt.identifier);
 	};
 
-	auto compile_LABEL = [&](const statement& stmt) {
+	auto compile_LABEL = [&](statement& stmt) {
 		print_label(stmt.identifier);
 	};
 
-	auto compile_GOTO = [&](const statement& stmt) {
+	auto compile_GOTO = [&](statement& stmt) {
 		print_standard("goto", {{argtype::VAR, stmt.identifier}});
 	};
 
-	auto compile_IF = [&](const statement& stmt) {
+	auto compile_IF = [&](statement& stmt) {
 		std::string end_label = generate_label("endif");
 		std::string else_label = generate_label("endelse");
 		bool has_else = stmt.else_statements.size();
 
+		conditional_operation(stmt.conditions[0]);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional_not", {
 			{argtype::VAR, stmt.conditions[0].identifier},
@@ -338,7 +352,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
-	auto compile_WHILE = [&](const statement& stmt) {
+	auto compile_WHILE = [&](statement& stmt) {
 		std::string begin_label = generate_label("beginwhile");
 		std::string end_label = generate_label("endwhile");
 		std::string cond_label = generate_label("whilecondition");
@@ -357,7 +371,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
-	auto compile_DO = [&](const statement& stmt) {
+	auto compile_DO = [&](statement& stmt) {
 		std::string begin_label = generate_label("begindo");
 		std::string end_label = generate_label("enddo");
 		std::string cond_label = generate_label("docondition");
@@ -373,7 +387,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
-	auto compile_FOR = [&](const statement& stmt) {
+	auto compile_FOR = [&](statement& stmt) {
 		std::string begin_label = generate_label("beginfor");
 		std::string end_label = generate_label("endfor");
 
@@ -394,7 +408,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
-	auto compile_REPEAT = [&](const statement& stmt) {
+	auto compile_REPEAT = [&](statement& stmt) {
 		if (stmt.value == 0) return;
 
 		std::string begin_label = generate_label("beginrepeat");
@@ -426,7 +440,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
-	auto compile_LOOP = [&](const statement& stmt) {
+	auto compile_LOOP = [&](statement& stmt) {
 		std::string begin_label = generate_label("beginloop");
 		std::string end_label = generate_label("endloop");
 		print_label(begin_label);
@@ -436,11 +450,12 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 
-	auto compile_OPERATION = [&](const statement& stmt) {
+	auto compile_OPERATION = [&](statement& stmt) {
+		if (stmt.identifier.length() == 0) return;
 		std::vector<arg> args;
 
 		variable& dest = varlist.required_get(stmt.identifier);
-		std::string lhs = auto_cast(dest, varlist.required_get(stmt.lhs));
+		std::string lhs = auto_cast(varlist.required_get(stmt.lhs), dest);
 		bool is_const = stmt.type < ADD;
 		std::string rhs;
 
@@ -451,7 +466,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				{argtype::VAR, stmt.identifier}
 			};
 		} else {
-			rhs = auto_cast(dest, varlist.required_get(stmt.rhs));
+			rhs = auto_cast(varlist.required_get(stmt.rhs), dest);
 			args = {
 				{argtype::VAR, lhs},
 				{argtype::VAR, rhs},
@@ -471,7 +486,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		if (!is_const) varlist.auto_free(rhs);
 	};
 
-	compile_statement = [&](const statement& stmt) {
+	compile_statement = [&](statement& stmt) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
 			case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
@@ -497,11 +512,11 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		#undef COMPILE
 	};
 
-	compile_statements = [&](const std::vector<statement>& list) {
-		for (const auto& stmt : list) {
+	compile_statements = [&](std::vector<statement>& list) {
+		for (auto& stmt : list) {
 			if (stmt.type == LABEL) l_table.emplace(stmt.identifier);
 		}
-		for (const auto& stmt : list) {
+		for (auto& stmt : list) {
 			compile_statement(stmt);
 		}
 	};

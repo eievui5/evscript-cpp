@@ -45,10 +45,14 @@ blank [ \t\r]
 \n+ loc.lines(yyleng); loc.step();
 
 "=" return yy::parser::make_ASSIGN(loc);
-"+=" return yy::parser::make_PLUS(loc);
-"-=" return yy::parser::make_MINUS(loc);
-"*=" return yy::parser::make_STAR(loc);
-"/=" return yy::parser::make_SLASH(loc);
+"+" return yy::parser::make_PLUS(loc);
+"-" return yy::parser::make_MINUS(loc);
+"*" return yy::parser::make_STAR(loc);
+"/" return yy::parser::make_SLASH(loc);
+"+=" return yy::parser::make_PLUSEQU(loc);
+"-=" return yy::parser::make_MINUSEQU(loc);
+"*=" return yy::parser::make_STAREQU(loc);
+"/=" return yy::parser::make_SLASHEQU(loc);
 "&&" return yy::parser::make_AND(loc);
 "||" return yy::parser::make_OR(loc);
 "==" return yy::parser::make_EQU(loc);
