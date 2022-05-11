@@ -25,6 +25,8 @@ void driver::load_std(environment& env) {
 		{ "div",                  {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		{ "equ",                  {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		{ "not",                  {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
+		{ "lt",                   {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
+		{ "gte",                  {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		{ "land",                 {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		{ "lor",                  {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		{ "add_const",            {DEF, i++, {{ARG, 1}, {CON, 1}, {ARG, 1}}}},
@@ -33,6 +35,8 @@ void driver::load_std(environment& env) {
 		{ "div_const",            {DEF, i++, {{ARG, 1}, {CON, 1}, {ARG, 1}}}},
 		{ "equ_const",            {DEF, i++, {{ARG, 1}, {CON, 1}, {ARG, 1}}}},
 		{ "not_const",            {DEF, i++, {{ARG, 1}, {CON, 1}, {ARG, 1}}}},
+		{ "lt_const",             {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
+		{ "gte_const",            {DEF, i++, {{ARG, 1}, {ARG, 1}, {ARG, 1}}}},
 		// dest, source
 		{ "copy",                 {DEF, i++, {{ARG, 1}, {ARG, 1}}}},
 		{ "load",                 {DEF, i++, {{ARG, 1}, {ARG, 2}}}},

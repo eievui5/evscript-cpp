@@ -21,6 +21,8 @@ MACRO std_bytecode
 	dw StdDiv
 	dw StdEqu
 	dw StdNot
+	dw StdLessThan
+	dw StdGreaterThanEqu
 	dw StdLogicalAnd
 	dw StdLogicalOr
 	; Constant 8-bit ops
@@ -30,6 +32,8 @@ MACRO std_bytecode
 	dw StdDivConst
 	dw StdEquConst
 	dw StdNotConst
+	dw StdLessThanConst
+	dw StdGreaterThanEquConst
 	; Copy
 	dw StdCopy
 	dw StdLoad
@@ -248,6 +252,22 @@ StdNot:
 	inc a
 	jr StoreEpilogue
 
+StdLessThan:
+	call OperandPrologue
+	cp a, b
+	ld a, 0
+	jr nc, StoreEpilogue
+	inc a
+	jr StoreEpilogue
+
+StdGreaterThanEqu:
+	call OperandPrologue
+	cp a, b
+	ld a, 0
+	jr c, StoreEpilogue
+	inc a
+	jr StoreEpilogue
+
 StdLogicalAnd:
 	call OperandPrologue
 	and a, a
@@ -332,25 +352,20 @@ StdNotConst:
 	inc a
 	jr StoreEpilogue
 
-StdLogicalAndConst:
+StdLessThanConst:
 	call ConstantOperandPrologue
-	and a, a
-	jr z, StoreEpilogue
-	ld a, b
-	and a, a
-	jr z, StoreEpilogue
-	ld a, 1
+	cp a, b
+	ld a, 0
+	jr nc, StoreEpilogue
+	inc a
 	jr StoreEpilogue
 
-StdLogicalOrConst:
+StdGreaterThanEquConst:
 	call ConstantOperandPrologue
-	and a, a
-	jr nz, .true
-	ld a, b
-	and a, a
-	jr z, StoreEpilogue
-.true
-	ld a, 1
+	cp a, b
+	ld a, 0
+	jr c, StoreEpilogue
+	inc a
 	jr StoreEpilogue
 
 SECTION "EVScript Copy", ROM0

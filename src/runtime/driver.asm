@@ -8,9 +8,9 @@ ExecuteScript::
 .next
 	ld a, [hli]
 	push hl
-	ld hl, EVScriptBytecodeTable / 1
+	add a, LOW(EVScriptBytecodeTable >> 1)
 	ld l, a
-	adc a, h
+	adc a, HIGH(EVScriptBytecodeTable >> 1)
 	sub a, l
 	ld h, a
 	add hl, hl

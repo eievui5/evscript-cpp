@@ -57,6 +57,10 @@ blank [ \t\r]
 "||" return yy::parser::make_OR(loc);
 "==" return yy::parser::make_EQU(loc);
 "!=" return yy::parser::make_NOT(loc);
+"<" return yy::parser::make_LTHAN(loc);
+"<=" return yy::parser::make_LTEQU(loc);
+">" return yy::parser::make_GTHAN(loc);
+">=" return yy::parser::make_GTEQU(loc);
 "(" return yy::parser::make_LPAREN(loc);
 ")" return yy::parser::make_RPAREN(loc);
 "{" return yy::parser::make_LBRACE(loc);

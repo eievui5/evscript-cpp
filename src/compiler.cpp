@@ -456,7 +456,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 		variable& dest = varlist.required_get(stmt.identifier);
 		std::string lhs = auto_cast(varlist.required_get(stmt.lhs), dest);
-		bool is_const = stmt.type < ADD;
+		bool is_const = stmt.type < EQU;
 		std::string rhs;
 
 		if (is_const) {
@@ -474,9 +474,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			};
 		}
 
-		const char * command_base[] = {"add", "sub", "mul", "div", "equ", "not", "and", "or"};
+		const char * command_base[] = {"equ", "not", "lt", "lte", "gt", "gte", "add", "sub", "mul", "div", "equ", "not", "and", "or"};
 		const char * command_type[] = {"", "16", "24", "32"};
-		std::string command = command_base[is_const ? stmt.type - CONST_ADD : stmt.type - ADD];
+		std::string command = command_base[is_const ? stmt.type - CONST_EQU : stmt.type - EQU];
 		command += command_type[dest.size - 1];
 		if (is_const) command += "_const";
 
@@ -489,8 +489,11 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	compile_statement = [&](statement& stmt) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
+			case CONST_EQU: case CONST_NOT: case CONST_LT: case CONST_LTE:
+			case CONST_GT: case CONST_GTE:
 			case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
-			case ADD: case SUB: case MULT: case DIV:
+			case EQU: case NOT: case LT: case LTE: case GT: case GTE: case ADD:
+			case SUB: case MULT: case DIV:
 				compile_OPERATION(stmt);
 				break;
 			COMPILE(ASSIGN);
