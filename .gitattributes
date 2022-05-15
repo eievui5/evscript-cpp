@@ -2,4 +2,7 @@
 *.hpp linguist-language=C++
 *.ypp linguist-language=Bison
 *.lpp linguist-language=Flex
-src/libs/* linguist-vendored
+src/libs/format.cpp linguist-vendored
+src/libs/fmt/core.h linguist-vendored
+src/libs/fmt/fmt-inl.h linguist-vendored
+src/libs/fmt/fmt.h linguist-vendored
