@@ -258,7 +258,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			"copy_const", "copy16_const", "copy24_const", "copy32_const"
 		};
 		std::vector<arg> args = {
-			{argtype::VAR, stmt.identifier}, {argtype::NUM, .value = stmt.value}
+			{argtype::VAR, stmt.identifier}, {argtype::NUM, "", stmt.value}
 		};
 		variable * var = varlist.get(stmt.identifier);
 
@@ -315,7 +315,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto compile_CALL = [&](statement& stmt) {
 		definition * def = env.get_define(stmt.identifier);
-		if (!def) err::fatal("Definition of {} not found", stmt.identifier); 
+		if (!def) err::fatal("Definition of {} not found", stmt.identifier);
 		print_definition(stmt.identifier, *def, stmt.args);
 	};
 
@@ -342,7 +342,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_standard("goto_conditional_not", {
 			{argtype::VAR, stmt.conditions[0].identifier},
 			{argtype::VAR, end_label}
-		}); 
+		});
 		compile_statements(stmt.statements);
 		if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
 		print_label(end_label);
@@ -424,14 +424,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		std::string temp_var = varlist.alloc(i_size, true);
 		print_standard(
 			i_size == 1 ? "copy_const" : fmt::format("copy{}_const", i_size * 8),
-			{{argtype::VAR, temp_var}, {argtype::NUM, .value = stmt.value}}
+			{{argtype::VAR, temp_var}, {argtype::NUM, "", stmt.value}}
 		);
 		print_label(begin_label);
 		compile_statements(stmt.statements);
 		print_label(cond_label);
 		print_standard(
 			i_size == 1 ? "sub_const" : fmt::format("sub{}_const", i_size * 8),
-			{{argtype::VAR, temp_var}, {argtype::NUM, .value = 1}, {argtype::VAR, temp_var}}
+			{{argtype::VAR, temp_var}, {argtype::NUM, "", 1}, {argtype::VAR, temp_var}}
 		);
 		print_standard("goto_conditional", {
 			{argtype::VAR, temp_var},
@@ -462,7 +462,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		if (is_const) {
 			args = {
 				{argtype::VAR, lhs},
-				{argtype::NUM, .value = stmt.value},
+				{argtype::NUM, "", stmt.value},
 				{argtype::VAR, stmt.identifier}
 			};
 		} else {
