@@ -49,10 +49,14 @@ blank [ \t\r]
 "-" return yy::parser::make_MINUS(loc);
 "*" return yy::parser::make_STAR(loc);
 "/" return yy::parser::make_SLASH(loc);
+"&" return yy::parser::make_BAND(loc);
+"|" return yy::parser::make_BOR(loc);
 "+=" return yy::parser::make_PLUSEQU(loc);
 "-=" return yy::parser::make_MINUSEQU(loc);
 "*=" return yy::parser::make_STAREQU(loc);
 "/=" return yy::parser::make_SLASHEQU(loc);
+"&=" return yy::parser::make_BANDEQU(loc);
+"|=" return yy::parser::make_BOREQU(loc);
 "&&" return yy::parser::make_AND(loc);
 "||" return yy::parser::make_OR(loc);
 "==" return yy::parser::make_EQU(loc);

@@ -7,15 +7,14 @@ OBJS := \
 CXXFLAGS := \
 	-std=c++20 -MD \
 	-Isrc/include -Isrc/ -Iobj/ -Isrc/libs \
-	-Wno-unused-result -Wno-parentheses -Wno-switch 
+	-Wno-unused-result -Wno-parentheses -Wno-switch
 RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
 TESTFLAGS := -o bin/out.asm examples/spec.evs
 
 CXXFLAGS += $(DEBUGFLAGS)
 
-all:
-	$(MAKE) $(BIN)
+all: $(BIN)
 
 clean:
 	rm -rf bin/ obj/
@@ -32,17 +31,19 @@ memcheck: all
 	valgrind --leak-check=full ./$(BIN) $(TESTFLAGS)
 
 # Compile each source file.
-obj/%.o: *%.cpp
+obj/%.o: src/%.cpp
 	@mkdir -p $(@D)
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
-obj/%.cpp: *%.ypp
+obj/%.o: src/%.ypp
 	@mkdir -p $(@D)
-	bison -Wcounterexamples -o $@ $<
+	bison -Wcounterexamples -o obj/$*.cpp $<
+	$(CXX) $(CXXFLAGS) -c -o $@ obj/$*.cpp
 
-obj/%.cpp: *%.lpp
+obj/%.o: src/%.lpp
 	@mkdir -p $(@D)
-	flex -o $@ $<
+	flex -o obj/$*.cpp $<
+	$(CXX) $(CXXFLAGS) -c -o $@ obj/$*.cpp
 
 # Link the output binary.
 $(BIN): $(OBJS)

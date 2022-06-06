@@ -474,7 +474,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			};
 		}
 
-		const char * command_base[] = {"equ", "not", "lt", "lte", "gt", "gte", "add", "sub", "mul", "div", "equ", "not", "and", "or"};
+		const char * command_base[] = {"equ", "not", "lt", "lte", "gt", "gte", "add", "sub", "mul", "div", "band", "bor", "equ", "not", "and", "or"};
 		const char * command_type[] = {"", "16", "24", "32"};
 		std::string command = command_base[is_const ? stmt.type - CONST_EQU : stmt.type - EQU];
 		command += command_type[dest.size - 1];
@@ -490,10 +490,10 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
 			case CONST_EQU: case CONST_NOT: case CONST_LT: case CONST_LTE:
-			case CONST_GT: case CONST_GTE:
-			case CONST_ADD: case CONST_SUB: case CONST_MULT: case CONST_DIV:
+			case CONST_GT: case CONST_GTE: case CONST_ADD: case CONST_SUB:
+			case CONST_MULT: case CONST_DIV: case CONST_BAND: case CONST_BOR:
 			case EQU: case NOT: case LT: case LTE: case GT: case GTE: case ADD:
-			case SUB: case MULT: case DIV:
+			case SUB: case MULT: case DIV: case BAND: case BOR:
 				compile_OPERATION(stmt);
 				break;
 			COMPILE(ASSIGN);

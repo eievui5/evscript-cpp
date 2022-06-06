@@ -41,8 +41,8 @@
 %define api.token.prefix {TOK_}
 %token
 	ASSIGN "="
-	PLUS "+" MINUS "-" STAR "*" SLASH "/"
-	PLUSEQU "+=" MINUSEQU "-=" STAREQU "*=" SLASHEQU "/="
+	PLUS "+" MINUS "-" STAR "*" SLASH "/" BAND "&" BOR "|"
+	PLUSEQU "+=" MINUSEQU "-=" STAREQU "*=" SLASHEQU "/=" BANDEQU "&=" BOREQU "|="
 	AND "&&" OR "||" EQU "==" NOT "!=" LTHAN "<" LTEQU "<=" GTHAN ">" GTEQU ">="
 	LPAREN "(" RPAREN ")" LBRACE "{" RBRACE "}"
 	COLON ":" ELLIPSES "..." SEMICOLON ";" COMMA ","
@@ -196,12 +196,16 @@ statement:
 | "identifier" "-=" "number" { CONSTOP($$, $1, $1, $3, CONST_SUB); }
 | "identifier" "*=" "number" { CONSTOP($$, $1, $1, $3, CONST_MULT); }
 | "identifier" "/=" "number" { CONSTOP($$, $1, $1, $3, CONST_DIV); }
+| "identifier" "&=" "number" { CONSTOP($$, $1, $1, $3, CONST_BAND); }
+| "identifier" "|=" "number" { CONSTOP($$, $1, $1, $3, CONST_BOR); }
 // variable operations
 | "identifier" "=" "identifier"  { VAROP($$, $1, $1, $3, COPY); } // may load a global
 | "identifier" "+=" "identifier" { VAROP($$, $1, $1, $3, ADD); }
 | "identifier" "-=" "identifier" { VAROP($$, $1, $1, $3, SUB); }
 | "identifier" "*=" "identifier" { VAROP($$, $1, $1, $3, MULT); }
 | "identifier" "/=" "identifier" { VAROP($$, $1, $1, $3, DIV); }
+| "identifier" "&=" "identifier" { VAROP($$, $1, $1, $3, BAND); }
+| "identifier" "|=" "identifier" { VAROP($$, $1, $1, $3, BOR); }
 | "identifier" "identifier" {
 	$$.type = statement_type::DECLARE;
 	$$.size = drv.get_type($1);
@@ -241,6 +245,8 @@ expression:
 | "identifier" "-" "identifier"  { VAROP($$, "", $1, $3, SUB); }
 | "identifier" "*" "identifier"  { VAROP($$, "", $1, $3, MULT); }
 | "identifier" "/" "identifier"  { VAROP($$, "", $1, $3, DIV); }
+| "identifier" "&" "identifier"  { VAROP($$, "", $1, $3, BAND); }
+| "identifier" "|" "identifier"  { VAROP($$, "", $1, $3, BOR); }
 | "identifier" "==" "identifier" { VAROP($$, "", $1, $3, EQU); }
 | "identifier" "!=" "identifier" { VAROP($$, "", $1, $3, NOT); }
 | "identifier" "<" "identifier"  { VAROP($$, "", $1, $3, LT); }
@@ -251,6 +257,8 @@ expression:
 | "identifier" "-" "number" { CONSTOP($$, "", $1, $3, CONST_SUB); }
 | "identifier" "*" "number" { CONSTOP($$, "", $1, $3, CONST_MULT); }
 | "identifier" "/" "number" { CONSTOP($$, "", $1, $3, CONST_DIV); }
+| "identifier" "&" "number" { CONSTOP($$, "", $1, $3, CONST_BAND); }
+| "identifier" "|" "number" { CONSTOP($$, "", $1, $3, CONST_BOR); }
 | "identifier" "==" "number" { CONSTOP($$, "", $1, $3, CONST_EQU); }
 | "identifier" "!=" "number" { CONSTOP($$, "", $1, $3, CONST_NOT); }
 | "identifier" "<" "number"  { CONSTOP($$, "", $1, $3, CONST_LT); }
