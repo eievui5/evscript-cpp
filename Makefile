@@ -12,9 +12,12 @@ RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
 TESTFLAGS := -o bin/out.asm examples/spec.evs
 
-CXXFLAGS += $(DEBUGFLAGS)
+all:
+	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(DEBUGFLAGS)"
 
-all: $(BIN)
+release:
+	${MAKE} clean
+	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(RELEASEFLAGS)"
 
 clean:
 	rm -rf bin/ obj/

@@ -333,7 +333,7 @@ argument:
 | "string" { $$.str = $1; $$.type = argtype::STR; }
 | "$n" { $$.value = $1; $$.type = argtype::ARG; };
 
-assembly: "asm" "{" "}" {};
+assembly: "asm" "string" { drv.assembly.push_back($2); };
 
 %%
 

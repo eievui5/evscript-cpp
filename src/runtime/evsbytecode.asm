@@ -19,6 +19,8 @@ MACRO std_bytecode
 	dw StdSub
 	dw StdMul
 	dw StdDiv
+	dw StdBinaryAnd
+	dw StdBinaryOr
 	dw StdEqu
 	dw StdNot
 	dw StdLessThan
@@ -30,6 +32,8 @@ MACRO std_bytecode
 	dw StdSubConst
 	dw StdMulConst
 	dw StdDivConst
+	dw StdBinaryAndConst
+	dw StdBinaryOrConst
 	dw StdEquConst
 	dw StdNotConst
 	dw StdLessThanConst
@@ -236,6 +240,16 @@ StdDiv:
 	inc c
 	jr :-
 
+StdBinaryAnd:
+	call OperandPrologue
+	and a, b
+	jr StoreEpilogue
+
+StdBinaryOr:
+	call OperandPrologue
+	or a, b
+	jr StoreEpilogue
+
 StdEqu:
 	call OperandPrologue
 	cp a, b
@@ -335,6 +349,16 @@ StdDivConst:
 	jr c, StoreEpilogue
 	inc c
 	jr :-
+
+StdBinaryAndConst:
+	call ConstantOperandPrologue
+	and a, b ; Here is the actual operation
+	jr StoreEpilogue
+
+StdBinaryOrConst:
+	call ConstantOperandPrologue
+	or a, b ; Here is the actual operation
+	jr StoreEpilogue
 
 StdEquConst:
 	call ConstantOperandPrologue

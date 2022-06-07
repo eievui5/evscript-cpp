@@ -108,6 +108,10 @@ blank [ \t\r]
 	std::string str = yytext;
 	str.erase(str.begin());
 	str.erase(str.end() - 1);
+	size_t index = 0;
+	while ((index = str.find('\\', index)) != -1) {
+		str.erase(index, 1);
+	}
 	return yy::parser::make_STRING(str, loc);
 }
 . {

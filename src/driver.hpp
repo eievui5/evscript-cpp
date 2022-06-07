@@ -17,6 +17,7 @@ struct driver {
 	std::unordered_map<std::string, type_definition> typedefs;
 	std::unordered_map<std::string, environment> environments;
 	std::unordered_map<std::string, script> scripts;
+	std::vector<std::string> assembly;
 
 	int result;
 	yy::location location;
