@@ -4,24 +4,29 @@
 #include "driver.hpp"
 #include "exception.hpp"
 
+extern const char * version;
+
 static bool printed_help = false;
 
 static void print_help(const char * program_name) {
 	if (!printed_help) {
 		printed_help = true;
-		fmt::print(
+		fmt::print(stderr, 
+			"evscript v{}\n"
 			"usage: {} -o <outfile> <infile>\n"
-			"\t-h --help   Show this message.\n"
-			"\t-o --output Path to output file.\n",
-			program_name
+			"\t-h --help    Show this message.\n"
+			"\t-o --output  Path to output file.\n"
+			"\t-V --version Show version number.\n",
+			version, program_name
 		);
 	}
 }
 
-static const char shortopts[] = "ho:";
+static const char shortopts[] = "ho:V";
 static struct option const longopts[] = {
-	{"help",   no_argument,       NULL, 'h'},
-	{"output", required_argument, NULL, 'o'}
+	{"help",    no_argument,       NULL, 'h'},
+	{"output",  required_argument, NULL, 'o'},
+	{"version", no_argument,       NULL, 'V'},
 };
 
 static FILE * fopen_output(const char * path) {
@@ -46,6 +51,7 @@ int main(int argc, char ** argv) {
 		switch (c) {
 		case 'h':
 			print_help(argv[0]);
+			exit(0);
 			break;
 		case 'o':
 			if (outfile) {
@@ -53,6 +59,10 @@ int main(int argc, char ** argv) {
 				fclose(outfile);
 			}
 			outfile = fopen_output(optarg);
+			break;
+		case 'V':
+			fmt::print(stderr, "evscript v{}\n", version);
+			exit(0);
 			break;
 		}
 	}

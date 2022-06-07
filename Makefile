@@ -53,4 +53,6 @@ obj/%.o: src/%.lpp
 # Link the output binary.
 $(BIN): $(OBJS)
 	@mkdir -p $(@D)
-	$(CXX) $(CXXFLAGS) -o $@ $^
+	printf "const char * version = \"%s\";\n" `git describe --tags --always --dirty` \
+	| $(CXX) $(CXXFLAGS) -c -x c++ -o obj/version.o -
+	$(CXX) $(CXXFLAGS) -o $@ $^ obj/version.o
