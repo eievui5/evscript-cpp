@@ -134,6 +134,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		case argtype::NUM:
 			fmt::print(out, "{}", argument.value);
 			break;
+		case argtype::CON:
+			fmt::print(out, "{}", argument.str);
+			break;
 		case argtype::STR:
 			fmt::print(out, ".string_table{}", s_table.size());
 			s_table.push_back(argument.str);
@@ -242,11 +245,18 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto conditional_operation = [&](statement& stmt) {
 		if (stmt.type >= ASSIGN && stmt.type <= DIV) {
-			unsigned lhs_size = varlist.required_get(stmt.lhs).size;
-			unsigned rhs_size = varlist.required_get(stmt.rhs).size;
-			unsigned size = lhs_size > rhs_size ? lhs_size : rhs_size;
 			if (stmt.identifier.length() == 0) {
-				stmt.identifier = varlist.alloc(size, true);
+				unsigned lhs_size = varlist.required_get(stmt.lhs).size;
+				unsigned rhs_size = 0;
+				if (stmt.rhs.length()) {
+					variable * rhs_variable = varlist.get(stmt.rhs);
+					if (rhs_variable) {
+						rhs_size = rhs_variable->size;
+					}
+				}
+				stmt.identifier = varlist.alloc(
+					lhs_size > rhs_size ? lhs_size : rhs_size, true
+				);
 			}
 		} else {
 			err::warn("Statement cannot be evaluated as condition");
@@ -466,12 +476,23 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				{argtype::VAR, stmt.identifier}
 			};
 		} else {
-			rhs = auto_cast(varlist.required_get(stmt.rhs), dest);
-			args = {
-				{argtype::VAR, lhs},
-				{argtype::VAR, rhs},
-				{argtype::VAR, stmt.identifier}
-			};
+			variable * rhs_variable = varlist.get(stmt.rhs);
+			if (rhs_variable) {
+				rhs = auto_cast(*rhs_variable, dest);
+				args = {
+					{argtype::VAR, lhs},
+					{argtype::VAR, rhs},
+					{argtype::VAR, stmt.identifier}
+				};
+			} else {
+				stmt.type -= EQU - CONST_EQU;
+				is_const = true;
+				args = {
+					{argtype::VAR, lhs},
+					{argtype::CON, stmt.rhs},
+					{argtype::VAR, stmt.identifier}
+				};
+			}
 		}
 
 		const char * command_base[] = {"equ", "not", "lt", "lte", "gt", "gte", "add", "sub", "mul", "div", "band", "bor", "equ", "not", "and", "or"};

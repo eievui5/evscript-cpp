@@ -7,7 +7,7 @@
 
 enum deftype { DEF, MAC, ALIAS };
 enum partype { ARG, CON, VARARGS };
-enum class argtype { VAR, NUM, STR, ARG };
+enum class argtype { VAR, NUM, STR, ARG, CON };
 
 struct type_definition {
 	unsigned size = 1;
@@ -56,7 +56,7 @@ enum statement_type {
 };
 
 struct statement {
-	statement_type type;
+	int type;
 
 	std::string identifier;
 
