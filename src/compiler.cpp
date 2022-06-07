@@ -373,6 +373,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(begin_label);
 		compile_statements(stmt.statements);
 		print_label(cond_label);
+		conditional_operation(stmt.conditions[0]);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional", {
 			{argtype::VAR, stmt.conditions[0].identifier},
@@ -389,6 +390,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(begin_label);
 		compile_statements(stmt.statements);
 		print_label(cond_label);
+		conditional_operation(stmt.conditions[0]);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional", {
 			{argtype::VAR, stmt.conditions[0].identifier},
@@ -405,6 +407,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		compile_statement(stmt.conditions[0]);
 		print_label(begin_label);
 		// Condition
+		conditional_operation(stmt.conditions[1]);
 		compile_statement(stmt.conditions[1]);
 		print_standard("goto_conditional_not", {
 			{argtype::VAR, stmt.conditions[1].identifier},
