@@ -13,11 +13,10 @@ DEBUGFLAGS := -Og -g
 TESTFLAGS := -o bin/out.asm examples/spec.evs
 
 all:
-	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(DEBUGFLAGS)"
-
-release:
-	${MAKE} clean
 	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(RELEASEFLAGS)"
+
+debug:
+	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(DEBUGFLAGS)"
 
 clean:
 	rm -rf bin/ obj/
@@ -29,6 +28,9 @@ rebuild:
 test: all
 	cd test/ && ./build.sh
 	open test/bin/test.gb
+
+install: all
+	install -s -m 755 $(BIN) /usr/local/$(BIN)
 
 memcheck: all
 	valgrind --leak-check=full ./$(BIN) $(TESTFLAGS)
