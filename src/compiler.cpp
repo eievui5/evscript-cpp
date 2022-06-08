@@ -278,10 +278,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		std::vector<arg> args = {
 			{argtype::VAR, stmt.identifier}, {argtype::NUM, "", stmt.value}
 		};
-		variable * var = varlist.get(stmt.identifier);
-
-		if (!var) err::fatal("{} is not defined", stmt.identifier);
-		print_standard(command_table[var->size - 1], args);
+		variable& var = varlist.required_get(stmt.identifier);
+		print_standard(command_table[var.size - 1], args);
 	};
 
 	auto compile_DECLARE = [&](statement& stmt) {
@@ -295,35 +293,29 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto compile_COPY = [&](statement& stmt) {
 		std::vector<arg> args = {{argtype::VAR, stmt.lhs}, {argtype::VAR, stmt.rhs}};
-		int iden_index = varlist.lookup(stmt.lhs);
-		int oper_index = varlist.lookup(stmt.rhs);
-		unsigned op_size;
-		const char ** command_table;
-		// Is the destination declared as a variable?
-		if (iden_index != -1 && oper_index != -1) {
+		variable * destination = varlist.get(stmt.lhs);
+		variable * source = varlist.get(stmt.rhs);
+		std::string command;
+
+		if (destination && source) {
 			const char * table[] = {
 				"copy", "copy16", "copy24", "copy32"
 			};
-			op_size = varlist.get(iden_index).size;
-			command_table = table;
-		} else if (iden_index != -1) {
+			command = table[destination->size - 1];
+		} else if (destination) {
 			const char * table[] = {
-				"load_const", "load16_const",
-				"load24_const", "load32_const"
+				"load_const", "load16_const", "load24_const", "load32_const"
 			};
-			op_size = varlist.get(iden_index).size;
-			command_table = table;
-		} else if (oper_index != -1) {
+			command = table[destination->size - 1];
+		} else if (source) {
 			const char * table[] = {
-				"store_const", "store16_const",
-				"store24_const", "store32_const"
+				"store_const", "store16_const", "store24_const", "store32_const"
 			};
-			op_size = varlist.get(oper_index).size;
-			command_table = table;
+			command = table[source->size - 1];
 		} else {
 			err::fatal("Cannot copy between two global vars, as no size is known");
 		}
-		print_standard(command_table[op_size - 1], args);
+		print_standard(command, args);
 	};
 
 	auto compile_DECLARE_COPY = [&](statement& stmt) {
