@@ -21,3 +21,4 @@ Navigate to the project root and execute `make`.
 ## TODO (from testing)
 - A pool of 0 segfaults. Give an error message instead.
 - OOM seems to just return an empty variable name for temps?
+- u8 var = CONST fails?

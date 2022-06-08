@@ -16,22 +16,30 @@ class variable_list {
 public:
 	std::string alloc(unsigned size, bool internal, const std::string& name = "") {
 		size_t i = 0;
-		while (i <= variables.size() - size) {
+		while (i < variables.size() - size) {
+		retry:
 			for (size_t j = i; j < i + size; j++) {
-				if (variables[i].size) goto next;
+				if (variables[i].size) {
+					i += variables[i].size;
+					goto retry;
+				}
 			}
-			goto found;
-		next:
-			i += variables[i].size;
+			// if we make it here, create a variable.
+			variables[i].size = size;
+			variables[i].internal = internal;
+			if (internal) variables[i].name = fmt::format("__evstemp{}", i);
+			else variables[i].name = name;
+			return variables[i].name;
 		}
-		err::fatal("Out of pool space.");
-
-	found:
-		variables[i].size = size;
-		variables[i].internal = internal;
-		if (internal) variables[i].name = fmt::format("__evstemp{}", i);
-		else variables[i].name = name;
-		return variables[i].name;
+		// In this case, show the user what is using up memory.
+		std::string contents;
+		for (auto& i : variables) {
+			contents += fmt::format(
+				"{}: size {}{}\n",
+				i.name, i.size, i.internal ? "(internal)" : ""
+			);
+		}
+		err::fatal("Out of pool space.\nActive variables:\n{}", contents);
 	}
 
 
@@ -360,6 +368,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			compile_statements(stmt.else_statements);
 			print_label(else_label);
 		}
+
+		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
 	auto compile_WHILE = [&](statement& stmt) {
@@ -380,6 +390,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, begin_label}
 		});
 		print_label(end_label);
+		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
 	auto compile_DO = [&](statement& stmt) {
@@ -397,6 +408,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, begin_label}
 		});
 		print_label(end_label);
+		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
 	auto compile_FOR = [&](statement& stmt) {
@@ -419,6 +431,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_standard("goto", {{argtype::VAR, begin_label}});
 
 		print_label(end_label);
+		varlist.auto_free(stmt.conditions[1].identifier);
 	};
 
 	auto compile_REPEAT = [&](statement& stmt) {
@@ -451,6 +464,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, begin_label}
 		});
 		print_label(end_label);
+		varlist.free(temp_var);
 	};
 
 	auto compile_LOOP = [&](statement& stmt) {
