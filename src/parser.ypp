@@ -52,7 +52,8 @@
 	DEF "def" MAC "mac" USE "use" TERM "terminator" SECT "section" POOL "pool"
 	CONST "const" TYPEDEF "typedef" TYPEBIG "typedef_big" DROP "drop" INCLUDE "include"
 	IF "if" ELSE "else" WHILE "while" DO "do" FOR "for" REPEAT "repeat" LOOP "loop"
-	BREAK "break" CONTINUE "continue" RETURN "return" YIELD "yield" GOTO "goto" CALLASM "call"
+	BREAK "break" CONTINUE "continue" RETURN "return" YIELD "yield" GOTO "goto"
+	CALLASM "call" PURGE "purge"
 ;
 %token <std::string> IDENTIFIER "identifier"
 %token <int> NUMBER "number"
@@ -238,6 +239,7 @@ statement:
 // These should insert code to automatically choose "far" versions.
 | "goto" "identifier" { $$.type = statement_type::GOTO; $$.identifier = $2; }
 | "call" "identifier" { $$.type = statement_type::CALLASM; $$.identifier = $2; }
+| "purge" "identifier" { $$.type = statement_type::PURGE; $$.identifier = $2; }
 ;
 
 expression:

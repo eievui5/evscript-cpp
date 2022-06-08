@@ -100,6 +100,7 @@ blank [ \t\r]
 "yield" return yy::parser::make_YIELD(loc);
 "goto" return yy::parser::make_GOTO(loc);
 "call" return yy::parser::make_CALLASM(loc);
+"purge" return yy::parser::make_PURGE(loc);
 
 {int} return make_NUMBER(yytext, loc);
 {arg} return make_ARGID(yytext, loc);

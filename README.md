@@ -22,3 +22,4 @@ Navigate to the project root and execute `make`.
 - A pool of 0 segfaults. Give an error message instead.
 - OOM seems to just return an empty variable name for temps?
 - u8 var = CONST fails?
+- `purge` is annoying. Add automatic lifetime detection.

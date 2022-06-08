@@ -16,8 +16,8 @@ class variable_list {
 public:
 	std::string alloc(unsigned size, bool internal, const std::string& name = "") {
 		size_t i = 0;
-		while (i < variables.size() - size) {
-		retry:
+	retry:
+		while (i <= variables.size() - size) {
 			for (size_t j = i; j < i + size; j++) {
 				if (variables[i].size) {
 					i += variables[i].size;
@@ -476,6 +476,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
+	auto compile_PURGE = [&](statement& stmt) {
+		varlist.free(stmt.identifier);
+	};
 
 	auto compile_OPERATION = [&](statement& stmt) {
 		if (stmt.identifier.length() == 0) return;
@@ -543,9 +546,10 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			COMPILE(DO);
 			COMPILE(DROP);
 			COMPILE(FOR);
+			COMPILE(GOTO);
 			COMPILE(LABEL);
 			COMPILE(LOOP);
-			COMPILE(GOTO);
+			COMPILE(PURGE);
 			COMPILE(IF);
 			COMPILE(REPEAT);
 			COMPILE(WHILE);
