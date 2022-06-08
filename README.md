@@ -12,6 +12,10 @@
 
 Navigate to the project root and execute `make`.
 
+## Installing
+
+Navigate to the project root and execute `sudo make install`.
+
 ## Credits
 
 - [{fmt}](https://github.com/fmtlib/fmt) for formatting output.
