@@ -331,7 +331,6 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto compile_DROP = [&](statement& stmt) {
 		varlist.free(stmt.identifier);
-		fmt::print(out, "\t; Dropped {}", stmt.identifier);
 	};
 
 	auto compile_LABEL = [&](statement& stmt) {
