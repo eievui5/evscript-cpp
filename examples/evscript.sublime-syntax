@@ -37,7 +37,7 @@ variables:
 
   identifier: \b[[:alpha:]_][[:alnum:]_]*\b # upper and lowercase
   macro_identifier: \b[[:upper:]_][[:upper:][:digit:]_]{2,}\b # only uppercase, at least 3 chars
-  control_keywords: 'break|continue|do|else|for|goto|if|return|while|repeat|loop|yield|env|asm|use|def|mac|pool|section|terminator|const|include'
+  control_keywords: 'break|continue|do|else|for|goto|if|return|while|repeat|loop|yield|env|asm|use|def|mac|pool|section|terminator|const|include|drop'
   basic_types: 'u8|u16|u24|u32|i8|i16|i24|i32|bank|ptr|farptr|supptr|std'
   before_tag: 'struct|union|enum'
   type_qualifier: 'const'

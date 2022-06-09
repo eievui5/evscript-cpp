@@ -468,10 +468,6 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_label(end_label);
 	};
 
-	auto compile_PURGE = [&](statement& stmt) {
-		varlist.free(stmt.identifier);
-	};
-
 	auto compile_OPERATION = [&](statement& stmt) {
 		if (stmt.identifier.length() == 0) return;
 		std::vector<arg> args;
@@ -541,7 +537,6 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			COMPILE(GOTO);
 			COMPILE(LABEL);
 			COMPILE(LOOP);
-			COMPILE(PURGE);
 			COMPILE(IF);
 			COMPILE(REPEAT);
 			COMPILE(WHILE);
