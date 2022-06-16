@@ -10,11 +10,14 @@ struct variable {
 	std::string name;
 };
 
-class variable_list {
+struct variable_list {
 	std::vector<variable> variables;
 
-public:
 	std::string alloc(unsigned size, bool internal, const std::string& name = "") {
+		if (variables.size() == 0) {
+			err::fatal("Cannot allocate memory, no pool is defined.");
+		}
+	
 		size_t i = 0;
 	retry:
 		while (i <= variables.size() - size) {
@@ -42,8 +45,7 @@ public:
 		err::fatal("Out of pool space.\nActive variables:\n{}", contents);
 	}
 
-
-
+	// Free a variable.
 	void free(const std::string& name) {
 		for (auto& var : variables) if (var.name == name) {
 			var.size = 0;
@@ -62,6 +64,7 @@ public:
 		err::fatal("No variable named \"{}\"", name);
 	}
 
+	// Find the index of a variable.
 	int lookup(const std::string& name) {
 		for (size_t i = 0; i < variables.size(); i++) {
 			if (variables[i].name == name) return i;
@@ -69,6 +72,8 @@ public:
 		return -1;
 	}
 
+	// Get a variable by name. Returns a nullptr if the variable does not
+	// exist.
 	variable * get(const std::string& name) {
 		for (auto& i : variables) {
 			if (i.name == name) return &i;
@@ -76,6 +81,13 @@ public:
 		return nullptr;
 	}
 
+	// Get a variable using its ID; always succeeds.
+	variable& get(int id) {
+		return variables[id];
+	}
+
+	// Get a variable by name. Throws a fatal error if the variable does not
+	// exist.
 	variable& required_get(const std::string& name) {
 		for (auto& i : variables) {
 			if (i.name == name) return i;
@@ -83,14 +95,14 @@ public:
 		err::fatal("Variable {} not found", name);
 	}
 
-	variable& get(int id) {
-		return variables[id];
-	}
-
 	variable_list(unsigned pool) { variables.resize(pool); }
 };
 
+// A list of constant strings found in the script.
+// These will be placed after the script is compiled.
 typedef std::vector<std::string> string_table;
+// A list of previously defined labels. This tells the script when to append a .
+// to a label name, as RGBASM's local labels are defined using a .
 typedef std::unordered_set<std::string> label_table;
 
 void script::compile(FILE * out, const std::string& name, environment& env) {
@@ -113,21 +125,25 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
+	// TODO: This needs to be removed as print_d cannot support u24s
 	auto print_value = [&](size_t size, unsigned value) {
 		print_d(size);
 		fmt::print(out, "{}\n", value);
 	};
 
+	// Generates a name for an internal label used by the compiler.
 	auto generate_label = [&](const std::string& l) {
 		std::string label = fmt::format("__{}_{}", l, l_table.size());
 		l_table.emplace(label);
 		return label;
 	};
 
+	// Prints a label, appending a dot.
 	auto print_label = [&](std::string label) {
 		fmt::print(out, ".{}\n", label);
 	};
 
+	// Outputs the value of an argument to a function.
 	auto print_argument = [&](const arg& argument) {
 		switch (argument.type) {
 		case argtype::VAR: {
@@ -155,6 +171,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
+	// TODO: This needs to be removed as print_d cannot support u24s
 	auto print_argument_d = [&](size_t size, const arg& argument) {
 		if (argument.type == argtype::VAR) {
 			int var_index = varlist.lookup(argument.str);
@@ -178,7 +195,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			} else {
 				int dif = args.size() - def.parameters.size();
 				if (dif > 0) {
-					err::warn("{} excess argument{} to {}", dif, dif == 1 ? "" : "s", name);
+					err::warn("{} excess argument{} to {}", dif, "s"[dif == 1], name);
 				}
 			}
 			print_value(1, def.bytecode);
@@ -228,6 +245,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
+	// Prints a function defined by the standard set of bytecode, printing
+	// a unique message if it doesn't exist.
 	auto print_standard = [&](const std::string& name, const std::vector<arg>& args) {
 		definition * def = env.get_define(name);
 		if (!def)
@@ -239,6 +258,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		print_definition(name, *def, args);
 	};
 
+	// Automatically cast a variable and return the new name only if needed.
 	auto auto_cast = [&](variable& dest, variable& source) {
 		std::string cast = dest.name;
 		if (dest.size != source.size) {
@@ -251,6 +271,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		return cast;
 	};
 
+	// Convert an operation to be used as a conditional by assigning a unique
+	// destination.
 	auto conditional_operation = [&](statement& stmt) {
 		if (stmt.type >= ASSIGN && stmt.type <= DIV) {
 			if (stmt.identifier.length() == 0) {
@@ -343,23 +365,35 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	auto compile_IF = [&](statement& stmt) {
 		std::string end_label = generate_label("endif");
-		std::string else_label = generate_label("endelse");
-		bool has_else = stmt.else_statements.size();
 
+		// Convert and compile the conditional, then insert a jump for
+		// when it is false.
 		conditional_operation(stmt.conditions[0]);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional_not", {
 			{argtype::VAR, stmt.conditions[0].identifier},
 			{argtype::VAR, end_label}
 		});
+
+		// Compile the block of statements to be executed when the
+		// condition is true.
 		compile_statements(stmt.statements);
-		if (has_else) print_standard("goto", {{argtype::VAR, else_label}});
-		print_label(end_label);
-		if (has_else) {
+
+		// An else block has extra stipulations. If an else block is
+		// present, compile it.
+		if (stmt.else_statements.size()) {
+			std::string else_label = generate_label("endelse");
+			// Insert a jump to skip the else block when the
+			// condition is true.
+			print_standard("goto", {{argtype::VAR, else_label}});
+			print_label(end_label);
 			compile_statements(stmt.else_statements);
 			print_label(else_label);
+		} else {
+			print_label(end_label);			
 		}
 
+		// Free any temporary variables generated for the condition.
 		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
@@ -372,8 +406,13 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		// condition, jump to the bottom and check it there each iterations
 		print_standard("goto", {{argtype::VAR, cond_label}});
 		print_label(begin_label);
+
+		// Compile the main block of statements.
 		compile_statements(stmt.statements);
+
 		print_label(cond_label);
+		// Convert and compile the conditional, then insert a jump for
+		// when it is true.
 		conditional_operation(stmt.conditions[0]);
 		compile_statement(stmt.conditions[0]);
 		print_standard("goto_conditional", {
@@ -381,6 +420,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, begin_label}
 		});
 		print_label(end_label);
+
+		// Free any temporary variables generated for the condition.
 		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
@@ -399,6 +440,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, begin_label}
 		});
 		print_label(end_label);
+
+		// Free any temporary variables generated for the condition.
 		varlist.auto_free(stmt.conditions[0].identifier);
 	};
 
@@ -406,10 +449,12 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		std::string begin_label = generate_label("beginfor");
 		std::string end_label = generate_label("endfor");
 
-		// compile prologue.
+		// Compile prologue to initialize the for loop.
 		compile_statement(stmt.conditions[0]);
+
 		print_label(begin_label);
-		// Condition
+		// Convert and compile the conditional, then insert a jump for
+		// when it is false.
 		conditional_operation(stmt.conditions[1]);
 		compile_statement(stmt.conditions[1]);
 		print_standard("goto_conditional_not", {
@@ -417,15 +462,21 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, end_label}
 		});
 
+		// Compile the main block of statements.
 		compile_statements(stmt.statements);
+
+		// Compile the epilogue, and then jump back to the condition.
 		compile_statement(stmt.conditions[2]);
 		print_standard("goto", {{argtype::VAR, begin_label}});
 
 		print_label(end_label);
+
+		// Free any temporary variables generated for the condition.
 		varlist.auto_free(stmt.conditions[1].identifier);
 	};
 
 	auto compile_REPEAT = [&](statement& stmt) {
+		// Special-case a loop that occurs 0 times.
 		if (stmt.value == 0) return;
 
 		std::string begin_label = generate_label("beginrepeat");
@@ -443,8 +494,10 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			i_size == 1 ? "copy_const" : fmt::format("copy{}_const", i_size * 8),
 			{{argtype::VAR, temp_var}, {argtype::NUM, "", stmt.value}}
 		);
+
 		print_label(begin_label);
 		compile_statements(stmt.statements);
+
 		print_label(cond_label);
 		print_standard(
 			i_size == 1 ? "sub_const" : fmt::format("sub{}_const", i_size * 8),
@@ -454,13 +507,17 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			{argtype::VAR, temp_var},
 			{argtype::VAR, begin_label}
 		});
+
 		print_label(end_label);
+
+		// Free the temporary counter variable.
 		varlist.free(temp_var);
 	};
 
 	auto compile_LOOP = [&](statement& stmt) {
 		std::string begin_label = generate_label("beginloop");
 		std::string end_label = generate_label("endloop");
+
 		print_label(begin_label);
 		compile_statements(stmt.statements);
 		print_standard("goto", {{argtype::VAR, begin_label}});
@@ -552,12 +609,15 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		}
 	};
 
+	// Special values to disable section creation.
 	if (env.section != "" && env.section != "none") {
 		fmt::print(out, "\nSECTION \"{} evscript section\", {}\n", name, env.section);
 	}
+	// Compile the contents of the script.
 	fmt::print(out, "{}::\n", name);
 	compile_statements(statements);
-	print_value(1, env.terminator);
+	// Print a terminator if the user has specified one.
+	if (env.terminator >= 0) print_value(1, env.terminator);
 	// Define constant strings
 	for (size_t i = 0; i < s_table.size(); i++) {
 		fmt::print(out, ".string_table{} db \"{}\", 0\n", i, s_table[i]);
