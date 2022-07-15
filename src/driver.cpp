@@ -104,4 +104,5 @@ void driver::merge(driver& source) {
 	typedefs.insert(source.typedefs.begin(), source.typedefs.end());
 	environments.insert(source.environments.begin(), source.environments.end());
 	scripts.insert(source.scripts.begin(), source.scripts.end());
+	assembly.insert(assembly.end(), source.assembly.begin(), source.assembly.end());
 }

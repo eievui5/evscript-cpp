@@ -12,7 +12,7 @@ x -= z;
 
 While this may seem tedious, being able to use dedicated operators already a big improvment over the usual macro-based approach. However, evscript's greatest benefit is its control structures. Rather than managing comparisons and jumps by hand, the compiler can express these for you:
 
-```
+```c
 if x == 1 {
 	function();
 }

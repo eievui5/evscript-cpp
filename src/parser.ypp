@@ -78,6 +78,7 @@ file: blocks block {};
 blocks: %empty {} | blocks block {};
 block:
   include {}
+| srcinc {}
 | typedef {}
 | environment {}
 | assembly {}
@@ -90,6 +91,10 @@ include: "include" "string" ";" {
 	new_driver.parse((std::filesystem::path(drv.file).parent_path() / $2).string());
 	drv.merge(new_driver);
 	yyin = cur_file;
+};
+
+srcinc: "include" "asm" "string" ";" {
+	drv.assembly.push_back(fmt::format("INCLUDE \"{}\"\n", $3));
 };
 
 typedef:
