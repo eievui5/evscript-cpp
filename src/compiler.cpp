@@ -226,11 +226,14 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		case ALIAS: {
 			fmt::print(out, "\t{} ", def.alias);
 			size_t i = 0;
-			for (; i < def.parameters.size(); i++) {
+			// I came up with this little hack and I'm very proud of it.
+			// So here's a comment proclaiming such.
+			// I'll leave figuring out how the condition works as a challenge to the reader.
+			if (def.parameters.size()) do {
 				if (def.parameters[i].type == VARARGS) break;
-				print_argument(args[i]);
-				fmt::print(out, ", ");
-			}
+				print_argument(args[i++]);
+			} while (i < def.parameters.size() && (fmt::print(out, ", "), 1));
+
 			for (; i < args.size(); i++) {
 				// Special case for string literals
 				if (args[i].type == argtype::STR) {
@@ -240,6 +243,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				}
 				fmt::print(out, ", ");
 			}
+
 			fmt::print(out, "\n");
 		} break;
 		}
