@@ -17,7 +17,7 @@ script TestScript {
 	// This will continually increment the background palette and then yield,
 	// until rBGP is all white.
 	loop {
-		value += 1;
+		value -= -1;
 		rBGP = value;
 
 		repeat 8 { yield; }
