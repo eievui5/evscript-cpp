@@ -1,18 +1,12 @@
 // The following types are provided by evscript:
-// u8    
-// u16  
-// u24 
-// u32  
-// bank (stores the bank of a label)
-// ptr (stores a label; identical to u16)
-// farptr (stores bank after pointer)
-// supptr (for 16-bit banks)
+// u8
+// u16
+// u24
+// u32
 
 // Additional types may be defined using the `typedef` keyword, if another size
 // or alias is required.
-// `typedef_big` can be used to specify that the value should be stored as
-// big-endian. This only works for constants
-typedef_big position = u24;
+typedef string = u16;
 
 // An environment is used to define a set of commands.
 // The "std" or standard environment is automatically provided, and contains all
@@ -45,19 +39,6 @@ env script {
 	// to store local variables is. This must be provided via pointer by the
 	// user, and should be unique for each concurrently running script.
 	pool = 32;
-}
-
-asm {
-//	MACRO print_string ; string, x, y, [length]
-//		ASSERT _NARG >= 3, "Expected at least 3 arguments"
-//		db PRINT_BYTE
-//		dw \1
-//		db \2, \3
-//		IF _NARG = 4
-//			db \4
-//		ELSE
-//			db 16
-//		ENDC
 }
 
 // Begin a script by specifying the environment you wish to use.

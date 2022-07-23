@@ -1,3 +1,5 @@
+typedef ptr = u16;
+
 env script {
 	use std;
 	def print(const ptr);

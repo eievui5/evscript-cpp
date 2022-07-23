@@ -59,10 +59,6 @@ struct driver {
 		typedefs["u16"].size = 2;
 		typedefs["u24"].size = 3;
 		typedefs["u32"].size = 4;
-		typedefs["bank"].size = 1;
-		typedefs["ptr"].size = 2;
-		typedefs["farptr"].size = 3;
-		typedefs["supptr"].size = 4;
 	}
 
 	void merge(driver&);
