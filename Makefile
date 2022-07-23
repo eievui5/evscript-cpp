@@ -12,6 +12,8 @@ RELEASEFLAGS := -Ofast -flto
 DEBUGFLAGS := -Og -g
 TESTFLAGS := -o bin/out.asm examples/spec.evs
 
+DESTINATION := /usr/local/bin
+
 all:
 	${MAKE} $(BIN) "CXXFLAGS=$(CXXFLAGS) $(RELEASEFLAGS)"
 
@@ -30,7 +32,7 @@ test: all
 	open test/bin/test.gb
 
 install: all
-	install -s -m 755 $(BIN) /usr/local/$(BIN)
+	install -s -m 755 $(BIN) $(DESTINATION)/evscript
 
 memcheck: all
 	valgrind --leak-check=full ./$(BIN) $(TESTFLAGS)
