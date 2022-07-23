@@ -166,7 +166,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			s_table.push_back(argument.str);
 			break;
 		case argtype::ARG:
-			err::fatal("Variable arguments are only allowed in macro definitions");
+			err::fatal("Reordered arguments are only allowed in macro definitions");
 			break;
 		}
 	};
