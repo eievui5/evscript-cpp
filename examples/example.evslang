@@ -1,0 +1,2 @@
+byte:.byte,str:.string {},number:#{},label:{0}:
+export {0},local_label:@{},section:.section {1},comment:// {},macro_open:{}(,macro_end:),

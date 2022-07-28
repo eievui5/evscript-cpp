@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "driver.hpp"
 #include "exception.hpp"
+#include "langs.hpp"
 
 // This string is generated in the makefile using the current git version.
 extern const char * version;
@@ -15,19 +16,21 @@ static void print_help(const char * program_name) {
 		fmt::print(stderr, 
 			"evscript v{}\n"
 			"usage: {} -o <outfile> <infile>\n"
-			"\t-h --help    Show this message.\n"
-			"\t-o --output  Path to output file.\n"
-			"\t-V --version Show version number.\n",
+			"\t-h --help     Show this message.\n"
+			"\t-l --language Set the output langage. \"help\" lists all languages.\n"
+			"\t-o --output   Path to output file.\n"
+			"\t-V --version  Show version number.\n",
 			version, program_name
 		);
 	}
 }
 
-static const char shortopts[] = "ho:V";
+static const char shortopts[] = "hl:o:V";
 static struct option const longopts[] = {
-	{"help",    no_argument,       NULL, 'h'},
-	{"output",  required_argument, NULL, 'o'},
-	{"version", no_argument,       NULL, 'V'},
+	{"help",      no_argument,       NULL, 'h'},
+	{"language",  required_argument, NULL, 'l'},
+	{"output",    required_argument, NULL, 'o'},
+	{"version",   no_argument,       NULL, 'V'},
 };
 
 static FILE * fopen_output(const char * path) {
@@ -53,6 +56,20 @@ int main(int argc, char ** argv) {
 		case 'h':
 			print_help(argv[0]);
 			exit(0);
+			break;
+		case 'l':
+			if (std::string(optarg) == "help") {
+				fmt::print(stderr, "Languages:\n");
+				for (auto language_entry : language_lookup) {
+					fmt::print(stderr, "{}\n", language_entry.first);
+				}
+				break;
+			}
+			if (language_lookup.contains(optarg)) {
+				lang = *language_lookup[std::string(optarg)];
+			} else {
+				readlang(optarg);
+			}
 			break;
 		case 'o':
 			if (outfile) {

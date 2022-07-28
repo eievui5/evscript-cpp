@@ -2,18 +2,21 @@
 #include <functional>
 #include <unordered_set>
 #include "exception.hpp"
+#include "langs.hpp"
 #include "types.hpp"
+
+using std::string;
 
 struct variable {
 	unsigned size = 0;
 	bool internal = false;
-	std::string name;
+	string name;
 };
 
 struct variable_list {
 	std::vector<variable> variables;
 
-	std::string alloc(unsigned size, bool internal, const std::string& name = "") {
+	string alloc(unsigned size, bool internal, const string& name = "") {
 		if (variables.size() == 0) {
 			err::fatal("Cannot allocate memory, no pool is defined.");
 		}
@@ -35,7 +38,7 @@ struct variable_list {
 			return variables[i].name;
 		}
 		// In this case, show the user what is using up memory.
-		std::string contents;
+		string contents;
 		for (auto& i : variables) {
 			contents += fmt::format(
 				"{}: size {}{}\n",
@@ -46,7 +49,7 @@ struct variable_list {
 	}
 
 	// Free a variable.
-	void free(const std::string& name) {
+	void free(const string& name) {
 		for (auto& var : variables) if (var.name == name) {
 			var.size = 0;
 			return;
@@ -55,7 +58,7 @@ struct variable_list {
 	}
 
 	// Free a variable only if it is marked as internal.
-	void auto_free(const std::string& name) {
+	void auto_free(const string& name) {
 		for (auto& var : variables) if (var.name == name) {
 			if (!var.internal) return;
 			var.size = 0;
@@ -65,7 +68,7 @@ struct variable_list {
 	}
 
 	// Find the index of a variable.
-	int lookup(const std::string& name) {
+	int lookup(const string& name) {
 		for (size_t i = 0; i < variables.size(); i++) {
 			if (variables[i].name == name) return i;
 		}
@@ -74,7 +77,7 @@ struct variable_list {
 
 	// Get a variable by name. Returns a nullptr if the variable does not
 	// exist.
-	variable * get(const std::string& name) {
+	variable * get(const string& name) {
 		for (auto& i : variables) {
 			if (i.name == name) return &i;
 		}
@@ -88,7 +91,7 @@ struct variable_list {
 
 	// Get a variable by name. Throws a fatal error if the variable does not
 	// exist.
-	variable& required_get(const std::string& name) {
+	variable& required_get(const string& name) {
 		for (auto& i : variables) {
 			if (i.name == name) return i;
 		}
@@ -100,12 +103,12 @@ struct variable_list {
 
 // A list of constant strings found in the script.
 // These will be placed after the script is compiled.
-typedef std::vector<std::string> string_table;
+typedef std::vector<string> string_table;
 // A list of previously defined labels. This tells the script when to append a .
 // to a label name, as RGBASM's local labels are defined using a .
-typedef std::unordered_set<std::string> label_table;
+typedef std::unordered_set<string> label_table;
 
-void script::compile(FILE * out, const std::string& name, environment& env) {
+void script::compile(FILE * out, const string& name, environment& env) {
 	variable_list varlist {env.pool};
 	string_table s_table;
 	label_table l_table;
@@ -113,79 +116,63 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	std::function<void(statement&)> compile_statement;
 	std::function<void(std::vector<statement>&)> compile_statements;
 
-	// TODO: This needs to be removed as it cannot support u24s
-	auto print_d = [&](size_t size) {
-		switch (size) {
-		case 1:fmt::print(out, "\tdb "); break;
-		case 2:fmt::print(out, "\tdw "); break;
-		case 4:fmt::print(out, "\tdl "); break;
+	// Returns the value of an argument as a string.
+	auto argument_as_string = [&](const arg& argument) {
+		switch (argument.type) {
+		case argtype::VAR: {
+			int var_index = varlist.lookup(argument.str);
+			if (var_index != -1) {
+				return fmt::format("{}", var_index);
+			} else {
+				return fmt::format("{}{}", l_table.contains(argument.str) ? "." : "", argument.str);
+			}
+		} break;
+		case argtype::NUM:
+			return fmt::format("{}", argument.value);
+		case argtype::CON:
+			return argument.str;
+		case argtype::STR:
+			s_table.push_back(argument.str);
+			return fmt::format(lang.local_label, fmt::format("string_table{}", s_table.size() - 1));
 		default:
-			err::fatal("Cannot output value of size {}", size);
-			break;
+			err::fatal("Reordered arguments are only allowed in macro definitions");
 		}
 	};
 
-	// TODO: This needs to be removed as print_d cannot support u24s
 	auto print_value = [&](size_t size, unsigned value) {
-		print_d(size);
-		fmt::print(out, "{}\n", value);
+		if (size > 4) err::fatal("Cannot output value of size {}", size);
+		for (int i = 0; i < size; i++) {
+			fmt::print(
+				out, "\t{} ({} >> {}) & {}\n",
+				lang.byte, fmt::format(lang.number, value), i * 8, fmt::format(lang.number, 0xFF)
+			);
+		}
+	};
+
+	auto print_argument = [&](size_t size, const arg& argument) {
+		if (size > 4) err::fatal("Cannot output value of size {}", size);
+		string arg_string = argument_as_string(argument);
+		for (int i = 0; i < size; i++) {
+			fmt::print(
+				out, "\t{} ({} >> {}) & {}\n",
+				lang.byte, fmt::format(lang.number, arg_string), i * 8, fmt::format(lang.number, 0xFF)
+			);
+		}
 	};
 
 	// Generates a name for an internal label used by the compiler.
-	auto generate_label = [&](const std::string& l) {
-		std::string label = fmt::format("__{}_{}", l, l_table.size());
+	auto generate_label = [&](const string& l) {
+		string label = fmt::format("__{}_{}", l, l_table.size());
 		l_table.emplace(label);
 		return label;
 	};
 
 	// Prints a label, appending a dot.
-	auto print_label = [&](std::string label) {
-		fmt::print(out, ".{}\n", label);
+	auto print_label = [&](string label) {
+		fmt::print(out, "{}\n", fmt::format(lang.local_label, label));
 	};
 
-	// Outputs the value of an argument to a function.
-	auto print_argument = [&](const arg& argument) {
-		switch (argument.type) {
-		case argtype::VAR: {
-			int var_index = varlist.lookup(argument.str);
-			if (var_index != -1) {
-				fmt::print(out, "{}", var_index);
-			} else {
-				if (l_table.contains(argument.str)) fmt::print(out, ".");
-				fmt::print(out, "{}", argument.str);
-			}
-		} break;
-		case argtype::NUM:
-			fmt::print(out, "{}", argument.value);
-			break;
-		case argtype::CON:
-			fmt::print(out, "{}", argument.str);
-			break;
-		case argtype::STR:
-			fmt::print(out, ".string_table{}", s_table.size());
-			s_table.push_back(argument.str);
-			break;
-		case argtype::ARG:
-			err::fatal("Reordered arguments are only allowed in macro definitions");
-			break;
-		}
-	};
-
-	// TODO: This needs to be removed as print_d cannot support u24s
-	auto print_argument_d = [&](size_t size, const arg& argument) {
-		if (argument.type == argtype::VAR) {
-			int var_index = varlist.lookup(argument.str);
-			if (var_index != -1) {
-				fmt::print(out, "\tdb {} ; {}", var_index, argument.str);
-				return;
-			}
-		}
-
-		print_d(size);
-		print_argument(argument);
-	};
-
-	auto print_definition = [&](const std::string& name, const definition& def, const std::vector<arg>& args) {
+	auto print_definition = [&](const string& name, const definition& def, const std::vector<arg>& args) {
 		fmt::print(out, "\t; {}\n", name);
 
 		switch (def.type) {
@@ -200,7 +187,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 			}
 			print_value(1, def.bytecode);
 			for (size_t i = 0; i < def.parameters.size(); i++) {
-				print_argument_d(def.parameters[i].size, args[i]);
+				print_argument(def.parameters[i].size, args[i]);
 				fmt::print(out, "\n");
 			}
 		} break;
@@ -211,27 +198,27 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				const arg& macarg = def.arguments[i];
 				switch (macarg.type) {
 				case argtype::STR:
-					fmt::print(out, "\tdb \"{}\"", macarg.str);
+					fmt::print(out, "\t{} \"{}\"", lang.byte, macarg.str);
 					break;
 				case argtype::ARG:
-					print_argument_d(source_def.parameters[i].size, args[macarg.value - 1]);
+					print_argument(source_def.parameters[i].size, args[macarg.value - 1]);
 					break;
 				default:
-					print_argument_d(source_def.parameters[i].size, macarg);
+					print_argument(source_def.parameters[i].size, macarg);
 					break;
 				}
 				fmt::print(out, "\n");
 			}
 		} break;
 		case ALIAS: {
-			fmt::print(out, "\t{} ", def.alias);
+			fmt::print(out, "\t{}", fmt::format(lang.macro_open, def.alias));
 			size_t i = 0;
 			// I came up with this little hack and I'm very proud of it.
 			// So here's a comment proclaiming such.
 			// I'll leave figuring out how the condition works as a challenge to the reader.
 			if (def.parameters.size()) do {
 				if (def.parameters[i].type == VARARGS) break;
-				print_argument(args[i++]);
+				fmt::print(out, argument_as_string(args[i++]));
 			} while (i < def.parameters.size() && (fmt::print(out, ", "), 1));
 
 			for (; i < args.size(); i++) {
@@ -239,19 +226,19 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 				if (args[i].type == argtype::STR) {
 					fmt::print(out, "\"{}\"", args[i].str);
 				} else {
-					print_argument(args[i]);
+					fmt::print(out, argument_as_string(args[i]));
 				}
 				fmt::print(out, ", ");
 			}
 
-			fmt::print(out, "\n");
+			fmt::print(out, "{}\n", lang.macro_end);
 		} break;
 		}
 	};
 
 	// Prints a function defined by the standard set of bytecode, printing
 	// a unique message if it doesn't exist.
-	auto print_standard = [&](const std::string& name, const std::vector<arg>& args) {
+	auto print_standard = [&](const string& name, const std::vector<arg>& args) {
 		definition * def = env.get_define(name);
 		if (!def)
 			err::fatal(
@@ -264,7 +251,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	// Automatically cast a variable and return the new name only if needed.
 	auto auto_cast = [&](variable& dest, variable& source) {
-		std::string cast = dest.name;
+		string cast = dest.name;
 		if (dest.size != source.size) {
 			cast = varlist.alloc(dest.size, true);
 			print_standard(
@@ -321,7 +308,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		std::vector<arg> args = {{argtype::VAR, stmt.lhs}, {argtype::VAR, stmt.rhs}};
 		variable * destination = varlist.get(stmt.lhs);
 		variable * source = varlist.get(stmt.rhs);
-		std::string command;
+		string command;
 
 		if (destination && source) {
 			const char * table[] = {
@@ -368,7 +355,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_IF = [&](statement& stmt) {
-		std::string end_label = generate_label("endif");
+		string end_label = generate_label("endif");
 
 		// Convert and compile the conditional, then insert a jump for
 		// when it is false.
@@ -386,7 +373,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		// An else block has extra stipulations. If an else block is
 		// present, compile it.
 		if (stmt.else_statements.size()) {
-			std::string else_label = generate_label("endelse");
+			string else_label = generate_label("endelse");
 			// Insert a jump to skip the else block when the
 			// condition is true.
 			print_standard("goto", {{argtype::VAR, else_label}});
@@ -402,9 +389,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_WHILE = [&](statement& stmt) {
-		std::string begin_label = generate_label("beginwhile");
-		std::string end_label = generate_label("endwhile");
-		std::string cond_label = generate_label("whilecondition");
+		string begin_label = generate_label("beginwhile");
+		string end_label = generate_label("endwhile");
+		string cond_label = generate_label("whilecondition");
 
 		// Rather than jumping to the start each iteration to check the
 		// condition, jump to the bottom and check it there each iterations
@@ -430,9 +417,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_DO = [&](statement& stmt) {
-		std::string begin_label = generate_label("begindo");
-		std::string end_label = generate_label("enddo");
-		std::string cond_label = generate_label("docondition");
+		string begin_label = generate_label("begindo");
+		string end_label = generate_label("enddo");
+		string cond_label = generate_label("docondition");
 
 		print_label(begin_label);
 		compile_statements(stmt.statements);
@@ -450,8 +437,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_FOR = [&](statement& stmt) {
-		std::string begin_label = generate_label("beginfor");
-		std::string end_label = generate_label("endfor");
+		string begin_label = generate_label("beginfor");
+		string end_label = generate_label("endfor");
 
 		// Compile prologue to initialize the for loop.
 		compile_statement(stmt.conditions[0]);
@@ -483,9 +470,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		// Special-case a loop that occurs 0 times.
 		if (stmt.value == 0) return;
 
-		std::string begin_label = generate_label("beginrepeat");
-		std::string cond_label = generate_label("repeatcondition");
-		std::string end_label = generate_label("endrepeat");
+		string begin_label = generate_label("beginrepeat");
+		string cond_label = generate_label("repeatcondition");
+		string end_label = generate_label("endrepeat");
 		size_t i_size;
 
 		if (stmt.value < 256) i_size = 1;
@@ -493,7 +480,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		else err::fatal("Repeat loops are limited to 65536 iterations");
 
 		// compile prologue.
-		std::string temp_var = varlist.alloc(i_size, true);
+		string temp_var = varlist.alloc(i_size, true);
 		print_standard(
 			i_size == 1 ? "copy_const" : fmt::format("copy{}_const", i_size * 8),
 			{{argtype::VAR, temp_var}, {argtype::NUM, "", stmt.value}}
@@ -519,8 +506,8 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 	};
 
 	auto compile_LOOP = [&](statement& stmt) {
-		std::string begin_label = generate_label("beginloop");
-		std::string end_label = generate_label("endloop");
+		string begin_label = generate_label("beginloop");
+		string end_label = generate_label("endloop");
 
 		print_label(begin_label);
 		compile_statements(stmt.statements);
@@ -533,9 +520,9 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 		std::vector<arg> args;
 
 		variable& dest = varlist.required_get(stmt.identifier);
-		std::string lhs = auto_cast(varlist.required_get(stmt.lhs), dest);
+		string lhs = auto_cast(varlist.required_get(stmt.lhs), dest);
 		bool is_const = stmt.type < EQU;
-		std::string rhs;
+		string rhs;
 
 		if (is_const) {
 			args = {
@@ -565,7 +552,7 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 		const char * command_base[] = {"equ", "not", "lt", "lte", "gt", "gte", "add", "sub", "mul", "div", "band", "bor", "equ", "not", "and", "or"};
 		const char * command_type[] = {"", "16", "24", "32"};
-		std::string command = command_base[is_const ? stmt.type - CONST_EQU : stmt.type - EQU];
+		string command = command_base[is_const ? stmt.type - CONST_EQU : stmt.type - EQU];
 		command += command_type[dest.size - 1];
 		if (is_const) command += "_const";
 
@@ -615,15 +602,18 @@ void script::compile(FILE * out, const std::string& name, environment& env) {
 
 	// Special values to disable section creation.
 	if (env.section != "" && env.section != "none") {
-		fmt::print(out, "\nSECTION \"{} evscript section\", {}\n", name, env.section);
+		fmt::print(out, "\n{}\n", fmt::format(lang.section, name, env.section));
 	}
 	// Compile the contents of the script.
-	fmt::print(out, "{}::\n", name);
+	fmt::print(out, "{}\n", fmt::format(lang.label, name));
 	compile_statements(statements);
 	// Print a terminator if the user has specified one.
 	if (env.terminator >= 0) print_value(1, env.terminator);
 	// Define constant strings
 	for (size_t i = 0; i < s_table.size(); i++) {
-		fmt::print(out, ".string_table{} db \"{}\", 0\n", i, s_table[i]);
+		fmt::print(out, lang.local_label, fmt::format("string_table{}", i));
+		fmt::print(out, "\n");
+		fmt::print(out, lang.str, s_table[i]);
+		fmt::print(out, "\n");
 	}
 }
