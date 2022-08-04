@@ -15,6 +15,6 @@ struct language {
 };
 
 extern language lang;
-extern std::unordered_map<std::string, const language *> language_lookup;
+extern std::unordered_map<std::string, language *> language_lookup;
 
 void readlang(std::string path);

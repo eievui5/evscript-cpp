@@ -2,7 +2,7 @@
 #include "exception.hpp"
 #include "langs.hpp"
 
-const language rgbasm = {
+language rgbasm = {
 	.byte = "db",
 	.str = "db \"{}\", 0",
 	.number = "{}",
@@ -14,7 +14,7 @@ const language rgbasm = {
 	.macro_end = "",
 };
 
-std::unordered_map<std::string, const language *> language_lookup = {
+std::unordered_map<std::string, language *> language_lookup = {
 	{"rgbasm", &rgbasm},
 };
 

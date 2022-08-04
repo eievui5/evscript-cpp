@@ -6,6 +6,8 @@
 #include "types.hpp"
 
 using std::string;
+using fmt::format;
+using fmt::print;
 
 struct variable {
 	unsigned size = 0;
@@ -33,14 +35,14 @@ struct variable_list {
 			// if we make it here, create a variable.
 			variables[i].size = size;
 			variables[i].internal = internal;
-			if (internal) variables[i].name = fmt::format("__evstemp{}", i);
+			if (internal) variables[i].name = format("__evstemp{}", i);
 			else variables[i].name = name;
 			return variables[i].name;
 		}
 		// In this case, show the user what is using up memory.
 		string contents;
 		for (auto& i : variables) {
-			contents += fmt::format(
+			contents += format(
 				"{}: size {}{}\n",
 				i.name, i.size, i.internal ? "(internal)" : ""
 			);
@@ -122,18 +124,18 @@ void script::compile(FILE * out, const string& name, environment& env) {
 		case argtype::VAR: {
 			int var_index = varlist.lookup(argument.str);
 			if (var_index != -1) {
-				return fmt::format("{}", var_index);
+				return format("{}", var_index);
 			} else {
-				return fmt::format("{}{}", l_table.contains(argument.str) ? "." : "", argument.str);
+				return format("{}{}", l_table.contains(argument.str) ? "." : "", argument.str);
 			}
 		} break;
 		case argtype::NUM:
-			return fmt::format("{}", argument.value);
+			return format("{}", argument.value);
 		case argtype::CON:
 			return argument.str;
 		case argtype::STR:
 			s_table.push_back(argument.str);
-			return fmt::format(lang.local_label, fmt::format("string_table{}", s_table.size() - 1));
+			return format(fmt::runtime(lang.local_label), format("string_table{}", s_table.size() - 1));
 		default:
 			err::fatal("Reordered arguments are only allowed in macro definitions");
 		}
@@ -142,9 +144,9 @@ void script::compile(FILE * out, const string& name, environment& env) {
 	auto print_value = [&](size_t size, unsigned value) {
 		if (size > 4) err::fatal("Cannot output value of size {}", size);
 		for (int i = 0; i < size; i++) {
-			fmt::print(
+			print(
 				out, "\t{} ({} >> {}) & {}\n",
-				lang.byte, fmt::format(lang.number, value), i * 8, fmt::format(lang.number, 0xFF)
+				lang.byte, format(fmt::runtime(lang.number), value), i * 8, format(fmt::runtime(lang.number), 0xFF)
 			);
 		}
 	};
@@ -153,27 +155,27 @@ void script::compile(FILE * out, const string& name, environment& env) {
 		if (size > 4) err::fatal("Cannot output value of size {}", size);
 		string arg_string = argument_as_string(argument);
 		for (int i = 0; i < size; i++) {
-			fmt::print(
+			print(
 				out, "\t{} ({} >> {}) & {}\n",
-				lang.byte, fmt::format(lang.number, arg_string), i * 8, fmt::format(lang.number, 0xFF)
+				lang.byte, format(fmt::runtime(lang.number), arg_string), i * 8, format(fmt::runtime(lang.number), 0xFF)
 			);
 		}
 	};
 
 	// Generates a name for an internal label used by the compiler.
 	auto generate_label = [&](const string& l) {
-		string label = fmt::format("__{}_{}", l, l_table.size());
+		string label = format("__{}_{}", l, l_table.size());
 		l_table.emplace(label);
 		return label;
 	};
 
 	// Prints a label, appending a dot.
 	auto print_label = [&](string label) {
-		fmt::print(out, "{}\n", fmt::format(lang.local_label, label));
+		print(out, "{}\n", format(fmt::runtime(lang.local_label), label));
 	};
 
 	auto print_definition = [&](const string& name, const definition& def, const std::vector<arg>& args) {
-		fmt::print(out, "\t; {}\n", name);
+		print(out, "\t; {}\n", name);
 
 		switch (def.type) {
 		case DEF: {
@@ -188,7 +190,7 @@ void script::compile(FILE * out, const string& name, environment& env) {
 			print_value(1, def.bytecode);
 			for (size_t i = 0; i < def.parameters.size(); i++) {
 				print_argument(def.parameters[i].size, args[i]);
-				fmt::print(out, "\n");
+				print(out, "\n");
 			}
 		} break;
 		case MAC: {
@@ -198,7 +200,7 @@ void script::compile(FILE * out, const string& name, environment& env) {
 				const arg& macarg = def.arguments[i];
 				switch (macarg.type) {
 				case argtype::STR:
-					fmt::print(out, "\t{} \"{}\"", lang.byte, macarg.str);
+					print(out, "\t{} \"{}\"", lang.byte, macarg.str);
 					break;
 				case argtype::ARG:
 					print_argument(source_def.parameters[i].size, args[macarg.value - 1]);
@@ -207,31 +209,31 @@ void script::compile(FILE * out, const string& name, environment& env) {
 					print_argument(source_def.parameters[i].size, macarg);
 					break;
 				}
-				fmt::print(out, "\n");
+				print(out, "\n");
 			}
 		} break;
 		case ALIAS: {
-			fmt::print(out, "\t{}", fmt::format(lang.macro_open, def.alias));
+			print(out, "\t{}", format(fmt::runtime(lang.macro_open), def.alias));
 			size_t i = 0;
 			// I came up with this little hack and I'm very proud of it.
 			// So here's a comment proclaiming such.
 			// I'll leave figuring out how the condition works as a challenge to the reader.
 			if (def.parameters.size()) do {
 				if (def.parameters[i].type == VARARGS) break;
-				fmt::print(out, argument_as_string(args[i++]));
-			} while (i < def.parameters.size() && (fmt::print(out, ", "), 1));
+				print(out, "{}", argument_as_string(args[i++]));
+			} while (i < def.parameters.size() && (print(out, ", "), 1));
 
 			for (; i < args.size(); i++) {
 				// Special case for string literals
 				if (args[i].type == argtype::STR) {
-					fmt::print(out, "\"{}\"", args[i].str);
+					print(out, "\"{}\"", args[i].str);
 				} else {
-					fmt::print(out, argument_as_string(args[i]));
+					print(out, "{}", argument_as_string(args[i]));
 				}
-				fmt::print(out, ", ");
+				print(out, ", ");
 			}
 
-			fmt::print(out, "{}\n", lang.macro_end);
+			print(out, "{}\n", lang.macro_end);
 		} break;
 		}
 	};
@@ -255,7 +257,7 @@ void script::compile(FILE * out, const string& name, environment& env) {
 		if (dest.size != source.size) {
 			cast = varlist.alloc(dest.size, true);
 			print_standard(
-				fmt::format("cast_{}to{}", source.size * 8, dest.size * 8),
+				format("cast_{}to{}", source.size * 8, dest.size * 8),
 				{{argtype::VAR, cast}, {argtype::VAR, source.name}}
 			);
 		}
@@ -482,7 +484,7 @@ void script::compile(FILE * out, const string& name, environment& env) {
 		// compile prologue.
 		string temp_var = varlist.alloc(i_size, true);
 		print_standard(
-			i_size == 1 ? "copy_const" : fmt::format("copy{}_const", i_size * 8),
+			i_size == 1 ? "copy_const" : format("copy{}_const", i_size * 8),
 			{{argtype::VAR, temp_var}, {argtype::NUM, "", stmt.value}}
 		);
 
@@ -491,7 +493,7 @@ void script::compile(FILE * out, const string& name, environment& env) {
 
 		print_label(cond_label);
 		print_standard(
-			i_size == 1 ? "sub_const" : fmt::format("sub{}_const", i_size * 8),
+			i_size == 1 ? "sub_const" : format("sub{}_const", i_size * 8),
 			{{argtype::VAR, temp_var}, {argtype::NUM, "", 1}, {argtype::VAR, temp_var}}
 		);
 		print_standard("goto_conditional", {
@@ -602,18 +604,18 @@ void script::compile(FILE * out, const string& name, environment& env) {
 
 	// Special values to disable section creation.
 	if (env.section != "" && env.section != "none") {
-		fmt::print(out, "\n{}\n", fmt::format(lang.section, name, env.section));
+		print(out, "\n{}\n", format(fmt::runtime(lang.section), name, env.section));
 	}
 	// Compile the contents of the script.
-	fmt::print(out, "{}\n", fmt::format(lang.label, name));
+	print(out, "{}\n", format(fmt::runtime(lang.label), name));
 	compile_statements(statements);
 	// Print a terminator if the user has specified one.
 	if (env.terminator >= 0) print_value(1, env.terminator);
 	// Define constant strings
 	for (size_t i = 0; i < s_table.size(); i++) {
-		fmt::print(out, lang.local_label, fmt::format("string_table{}", i));
-		fmt::print(out, "\n");
-		fmt::print(out, lang.str, s_table[i]);
-		fmt::print(out, "\n");
+		print(out, fmt::runtime(lang.local_label), format("string_table{}", i));
+		print(out, "\n");
+		print(out, fmt::runtime(lang.str), s_table[i]);
+		print(out, "\n");
 	}
 }
