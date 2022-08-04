@@ -29,6 +29,9 @@ rebuild:
 
 test: all
 	cd test/ && ./build.sh
+ifdef EMULATOR
+	$(EMULATOR) test/bin/test.gb &
+endif
 
 install: all
 	install -s -m 755 $(BIN) $(DESTINATION)/evscript
