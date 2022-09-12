@@ -3,6 +3,7 @@
 #include <unordered_set>
 #include "exception.hpp"
 #include "langs.hpp"
+#include "main.hpp"
 #include "types.hpp"
 
 using std::string;
@@ -565,6 +566,20 @@ void script::compile(FILE * out, const string& name, environment& env) {
 	};
 
 	compile_statement = [&](statement& stmt) {
+		if (debug_file) {
+			string debug_label = generate_label("debug");
+			print_label(debug_label);
+			// The debug format is:
+			// {label}:{line}:[{var name}, {offset}, {size}, {sign}]
+			print(debug_file, "{}.{}:{}:", name, debug_label, stmt.l.begin.line);
+			for (size_t i = 0; i < varlist.variables.size(); i++) {
+				variable& var = varlist.get(i);
+				if (var.size > 0 && !var.internal) {
+					print(debug_file, "{}, {}, {}, U, ", var.name, i, var.size);
+				}
+			}
+			print(debug_file, "\n");
+		}
 		#define COMPILE(type) case type: compile_##type(stmt); break
 		switch (stmt.type) {
 			case CONST_EQU: case CONST_NOT: case CONST_LT: case CONST_LTE:

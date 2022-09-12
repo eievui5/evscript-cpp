@@ -9,6 +9,8 @@
 extern const char * version;
 // Avoid printing the help text more than once.
 static bool printed_help = false;
+// Output file for debug information. If this is present, debug labels are produced
+FILE * debug_file = NULL;
 
 static void print_help(const char * program_name) {
 	if (!printed_help) {
@@ -16,8 +18,9 @@ static void print_help(const char * program_name) {
 		fmt::print(stderr, 
 			"evscript v{}\n"
 			"usage: {} -o <outfile> <infile>\n"
+			"\t-d --debug    Path to debug outfile.\n"
 			"\t-h --help     Show this message.\n"
-			"\t-l --language Set the output langage. \"help\" lists all languages.\n"
+			//"\t-l --language Set the output langage. \"help\" lists all languages.\n"
 			"\t-o --output   Path to output file.\n"
 			"\t-V --version  Show version number.\n",
 			version, program_name
@@ -25,10 +28,11 @@ static void print_help(const char * program_name) {
 	}
 }
 
-static const char shortopts[] = "hl:o:V";
+static const char shortopts[] = "d:hl:o:V";
 static struct option const longopts[] = {
+	{"debug",     required_argument, NULL, 'd'},
 	{"help",      no_argument,       NULL, 'h'},
-	{"language",  required_argument, NULL, 'l'},
+	//{"language",  required_argument, NULL, 'l'},
 	{"output",    required_argument, NULL, 'o'},
 	{"version",   no_argument,       NULL, 'V'},
 };
@@ -53,6 +57,9 @@ int main(int argc, char ** argv) {
 
 	for (char c; (c = getopt_long_only(argc, argv, shortopts, longopts, NULL)) != -1;) {
 		switch (c) {
+		case 'd':
+			debug_file = fopen_output(optarg);
+			break;
 		case 'h':
 			print_help(argv[0]);
 			exit(0);
