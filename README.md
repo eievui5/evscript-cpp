@@ -16,6 +16,15 @@ Navigate to the project root and execute `make`.
 
 Navigate to the project root and execute `sudo make install`.
 
+## Roadmap
+
+evscript is lacking a few crucial features before it is production-ready:
+
+1. Return values were omitted for technical reasons (the Game Boy doesn't have enough registers for them) but could be mimicked with syntactical sugar.
+2. Complex expressions (anything more than just `x = y + z`).
+3. Scope/automatic freeing of locals. `drop` will be removed.
+4. Structures.
+
 ## Credits
 
 - [{fmt}](https://github.com/fmtlib/fmt) for formatting output.
